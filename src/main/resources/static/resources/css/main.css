@@ -1,0 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=Raleway:wght@400&display=swap');
+
+.bmd-layout-container {
+  font-family: "Raleway", sans-serif;
+  -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+}
+
+body, html {
+  height: 100%;
+   font-family: "Raleway", sans-serif;
+  -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+}
+
+.container-fluid {
+	font-family: "Raleway", sans-serif;
+  -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+}
+
+a {
+	color: inherit;
+}
+
+.menu:hover{
+	color: inherit;
+	background-color: #F3F2F2;
+}
+
+.datatable-thead .th-sm {
+/* 	color: "blue"; */
+}
+
+.tooltip {
+  font-family: "Raleway", sans-serif;
+}

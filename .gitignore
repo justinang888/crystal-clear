@@ -1,2 +1,46 @@
-# Aurora download (source, database dumps, WARs) - kept out of this repo
+# Aurora download (database dumps, WARs, original source) - kept out of this repo
 AURORA-*/
+
+dumps/
+notes/
+*.war
+
+HELP.md
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**
+!**/src/test/**
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+
+### VS Code ###
+.vscode/
+/**/node_modules/
+frontend/node/
+frontend/node_modules/
+api/node_modules/
+ui/node_modules/
+
+### Python ###
+__pycache__/
