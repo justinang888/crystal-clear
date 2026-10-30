@@ -6,6 +6,10 @@ _Assessed 2026-10-31. Read-only review; no code was changed._
 > has also moved from MySQL to PostgreSQL; see `migration/postgres/README.md` for the cutover
 > runbook. Findings 1, 4 and the vulnerable MySQL driver are fixed there. Findings 2, 3 and 5
 > and the other dependencies remain for Phase 2.
+>
+> Phase 1 is done: `./mvnw test` runs 29 integration and unit tests against a real PostgreSQL,
+> plus 5 tests for the dump converter. They confirmed the three bugs listed under
+> "Found by the Phase 1 tests" below.
 
 ## 1. What Aurora is today
 
@@ -56,6 +60,13 @@ _Assessed 2026-10-31. Read-only review; no code was changed._
 - **Business logic lives in controllers.** `OrderController` (1,041 lines) and `CustomerController` (639 lines) hold most of the domain rules. That makes them hard to test or change safely.
 - **`ddl-auto=update` on production.** Hibernate changes the live schema silently on startup and never drops or renames anything. Schema history currently lives only in the ad-hoc files under `sql/`.
 - **Legacy date types.** The code mixes `java.sql.Date`, `Timestamp` and `LocalDate`. The DB URL in `start_app.cmd` pins `serverTimezone=Asia/Manila`, but the property files don't, so dev and prod can disagree on dates near midnight.
+- **Found by the Phase 1 tests** (each is pinned by a test marked KNOWN BUG):
+  - Editing an order never deletes its container activity: the old borrow/buy/return rows stay
+    and a second set is added for the new order id, so container history double-counts.
+  - Cancelling an order doesn't undo the container balance added when the order was created.
+  - `ReportUtil.applyCurrencyFormat`, used for the daily sales totals, drops the cents when a
+    sum of doubles has a long decimal tail (55.10 + 60.20 shows as "115") and breaks on
+    amounts of 10 million or more, which Java prints in E notation.
 - **Broken link.** `users.jsp` links to `/user/delete/{username}` (a destructive GET), but no controller maps it.
 - **JVM crash on record.** `hs_err_pid7944.log` shows a C2 JIT compiler crash on Java 8u372. That is another reason to move to a current LTS JDK.
 
