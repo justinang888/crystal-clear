@@ -4,7 +4,7 @@ Usage:
     python mysqldump_to_pg.py Dump20261030.sql aurora_data.sql
     psql -v ON_ERROR_STOP=1 -U aurora -d aurora -f aurora_data.sql
 
-The target database must already have the tables from schema.sql. The generated
+The target database must already have the tables from V1__initial_schema.sql. The generated
 script runs in a single transaction: it loads every table with COPY, moves each
 identity sequence past MySQL's AUTO_INCREMENT value, and then checks row counts
 and the sum of every decimal column against what was read from the dump. Any

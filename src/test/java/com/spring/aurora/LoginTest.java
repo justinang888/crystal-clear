@@ -3,7 +3,9 @@ package com.spring.aurora;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin;
 import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
 import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.unauthenticated;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
+import static org.hamcrest.Matchers.endsWith;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,7 +33,8 @@ class LoginTest extends PostgresIntegrationTest {
     void pagesRequireLogin() throws Exception {
         // Not the inherited get(), which is already logged in.
         this.mvc.perform(MockMvcRequestBuilders.get("/orders/list").accept(MediaType.TEXT_HTML))
-                .andExpect(redirectedUrlPattern("**/login"));
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", endsWith("/login")));
     }
 
     @Test

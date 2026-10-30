@@ -1,18 +1,12 @@
 package com.spring.aurora;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.sql.Connection;
-import java.sql.Statement;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -23,8 +17,8 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 
 /**
- * Base class for tests that run the whole application against a real PostgreSQL 16,
- * created from migration/postgres/schema.sql, the same schema production uses.
+ * Base class for tests that run the whole application against a real PostgreSQL 16.
+ * Flyway creates the schema from src/main/resources/db/migration, as it does in production.
  * One database serves the whole test run; every table is emptied before each test.
  */
 @SpringBootTest
@@ -35,13 +29,7 @@ public abstract class PostgresIntegrationTest {
 
     private static EmbeddedPostgres startPostgres() {
         try {
-            EmbeddedPostgres postgres = EmbeddedPostgres.builder().start();
-            String schema = new String(Files.readAllBytes(Paths.get("migration/postgres/schema.sql")), UTF_8);
-            try (Connection connection = postgres.getPostgresDatabase().getConnection();
-                    Statement statement = connection.createStatement()) {
-                statement.execute(schema);
-            }
-            return postgres;
+            return EmbeddedPostgres.builder().start();
         } catch (Exception e) {
             throw new IllegalStateException("Could not start the embedded PostgreSQL test database", e);
         }

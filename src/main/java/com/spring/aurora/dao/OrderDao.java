@@ -33,7 +33,7 @@ public interface OrderDao extends CrudRepository<Order, Long> {
     void cancelOrder(long orderId);
 
     @Modifying
-    @Query("update Order o set o.status = 'Delivered', o.createdAt = now() where o.orderId = :orderId")
+    @Query("update Order o set o.status = 'Delivered', o.createdAt = current_timestamp where o.orderId = :orderId")
     void setToDelivered(long orderId);
 
     // List<Order> findAllByDeliveryReceiptNumber(int drNumber);

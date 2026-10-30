@@ -1,7 +1,7 @@
 package com.spring.aurora.util;
 
-import javax.persistence.AttributeConverter;
-import javax.persistence.Converter;
+import jakarta.persistence.AttributeConverter;
+import jakarta.persistence.Converter;
 
 /**
  * Stores a numeric String field in an integer column. MySQL coerced these implicitly;

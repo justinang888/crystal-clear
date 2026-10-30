@@ -1,7 +1,8 @@
 -- Aurora schema for PostgreSQL (10+).
 -- Mirrors the MySQL schema column-for-column so a mysqldump can be loaded into it
 -- with mysqldump_to_pg.py. Run as the database owner:
---   psql -v ON_ERROR_STOP=1 -U aurora -d aurora -f schema.sql
+--   psql -v ON_ERROR_STOP=1 -U aurora -d aurora -f V1__initial_schema.sql
+-- The application also applies it through Flyway when it starts on an empty database.
 --
 -- Type mapping from MySQL: int/bigint AUTO_INCREMENT -> identity, decimal -> numeric,
 -- datetime -> timestamp (no time zone; values are Asia/Manila wall-clock time),

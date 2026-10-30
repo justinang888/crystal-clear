@@ -830,6 +830,8 @@ public class OrderController {
             order.setDeliveryReceiptNum(order.getDeliveryReceiptNum());
 
             this.orderService.delete(order);
+            // Re-insert as a new row with a new id (Hibernate 7 rejects saving a deleted id).
+            order.setOrderId(0);
             Order updatedOrder = this.orderService.insert(order);
             orderProductEntity.setOrder(updatedOrder);
             //Order updatedOrder = orderService.update(order);
@@ -853,6 +855,7 @@ public class OrderController {
                             this.orderProductService.remove(op);
                         } else {
                             this.orderProductService.remove(op); //OR REMOVE AND INSERT ??
+                            op.setOrderProductId(0);
                             this.orderProductService.insert(op);
                         }
                     }
