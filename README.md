@@ -1,10 +1,12 @@
 # aurora
 Water Station System
 
+Requires Java 21. Built on Spring Boot 4 with JSP views and PostgreSQL.
+
 ## Running the tests
 
 The tests start their own PostgreSQL 16 (no Docker or local install needed) and build it
-from `migration/postgres/schema.sql`:
+with the Flyway migrations in `src/main/resources/db/migration`:
 
 ```bash
 ./mvnw test

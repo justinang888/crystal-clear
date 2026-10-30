@@ -11,7 +11,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
  * Prints the BCrypt hash of a password for the users.password column.
  * Run from the deployed war (prompts without echoing the password):
  *
- *   java -cp aurora.war -Dloader.path=WEB-INF/classes,WEB-INF/lib -Dloader.main=com.spring.aurora.tools.HashPassword org.springframework.boot.loader.PropertiesLauncher
+ *   java -cp aurora.war -Dloader.path=WEB-INF/classes,WEB-INF/lib -Dloader.main=com.spring.aurora.tools.HashPassword org.springframework.boot.loader.launch.PropertiesLauncher
  */
 public class HashPassword {
 

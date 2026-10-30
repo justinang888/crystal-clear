@@ -10,6 +10,11 @@ _Assessed 2026-10-31. Read-only review; no code was changed._
 > Phase 1 is done: `./mvnw test` runs 29 integration and unit tests against a real PostgreSQL,
 > plus 5 tests for the dump converter. They confirmed the three bugs listed under
 > "Found by the Phase 1 tests" below.
+>
+> Phase 2 is done: Java 21, Spring Boot 4.1 (Spring 7, Spring Security 7, Hibernate 7,
+> Tomcat 11), Jakarta JSTL, Flyway, Maven 3.9. The vulnerable libraries in finding 6 are gone
+> and the security configuration is now loaded (finding 2). Role-based access (finding 3) and
+> output escaping (finding 5) are still open.
 
 ## 1. What Aurora is today
 
