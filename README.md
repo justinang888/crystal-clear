@@ -18,5 +18,5 @@ The dump converter has its own tests:
 cd migration/postgres && python -m unittest test_mysqldump_to_pg
 ```
 
-Tests marked **KNOWN BUG** pin current behavior that is wrong, so upgrades cannot change it
-silently. When fixing one of those bugs, update its test to the correct behavior.
+When a test pins behavior that is known to be wrong, mark it **KNOWN BUG** so upgrades
+can't change it silently, and update it to the correct behavior when the bug is fixed.

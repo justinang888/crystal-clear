@@ -11,6 +11,7 @@ public interface ContainerService {
     Container delete(Container container);
 
     List<Container> findAllByCustomerId(long customerId);
+    List<Container> findAllByCustomerIdAndOrderId(long customerId, long orderId);
     List<Container> findAll();
     List<Container> findContainerActivityByDate(Date date);
 }

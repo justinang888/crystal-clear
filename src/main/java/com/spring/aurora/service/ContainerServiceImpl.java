@@ -45,6 +45,11 @@ public class ContainerServiceImpl implements ContainerService {
     }
 
     @Override
+    public List<Container> findAllByCustomerIdAndOrderId(long customerId, long orderId) {
+        return this.containerDao.findAllByCustomerIdAndOrderId(customerId, orderId);
+    }
+
+    @Override
     public List<Container> findAll() {
         List<Container> result = new ArrayList<>();
         this.containerDao.findAll().forEach(result::add);

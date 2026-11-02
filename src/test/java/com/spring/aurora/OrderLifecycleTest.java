@@ -193,53 +193,97 @@ class OrderLifecycleTest extends PostgresIntegrationTest {
         assertThat(customer().get("total_round")).isEqualTo(1);
     }
 
-    /**
-     * KNOWN BUG (pinned so the upgrade can't change it silently): editing an order is meant to
-     * move its container activity to the new order id, but the "delete" passes new objects
-     * without ids, which deletes nothing. The original rows stay and a second set is added.
-     */
-    @Test
-    void editingAnOrderDuplicatesItsContainerActivity() throws Exception {
-        long orderId = createOrder("0");
-        deliver(orderId);
-        String createdAt = order(orderId).get("created_at").toString();
-
+    /** Submits the edit form for the 3-round-refill order, changing the returned count. Returns the new order id. */
+    private long editOrder(long orderId, String status, String roundReturned) throws Exception {
         this.mvc.perform(post("/orders/update")
                 .param("order.orderId", String.valueOf(orderId))
                 .param("order.customerId", String.valueOf(this.customerId))
                 .param("order.deliveryReceiptNum", "DR-1")
-                .param("order.status", "Delivered")
-                .param("order.createdAt", createdAt)
+                .param("order.status", status)
+                .param("order.createdAt", order(orderId).get("created_at").toString())
                 .param("order.roundRefillOnlyCount", "3")
-                .param("order.roundReturned", "1")
+                .param("order.roundReturned", roundReturned)
                 .param("order.totalAmount", "165.00")
                 .param("order.amountPaid", "0")
                 .param("opList[0].productId", "1").param("opList[0].quantity", "3"))
                 .andExpect(redirectedUrl("/orders/list"));
-        long newOrderId = this.jdbc.queryForObject("SELECT max(order_id) FROM orders", Long.class);
+        return this.jdbc.queryForObject("SELECT max(order_id) FROM orders", Long.class);
+    }
+
+    private void cancel(long orderId) throws Exception {
+        this.mvc.perform(post("/orders/cancel").param("orderId", String.valueOf(orderId)))
+                .andExpect(redirectedUrl("/orders/list"));
+    }
+
+    @Test
+    void editingADeliveredOrderMovesItsContainerActivityToTheNewOrder() throws Exception {
+        long orderId = createOrder("0");
+        deliver(orderId);
+
+        long newOrderId = editOrder(orderId, "Delivered", "2");
+
+        assertThat(containerActivity()).as("the original order's rows are replaced, not kept").containsExactly(
+                "B order=" + newOrderId + " round=3 slim=0",
+                "BC order=" + newOrderId + " round=0 slim=0",
+                "RO order=" + newOrderId + " round=2 slim=0");
+    }
+
+    @Test
+    void editingAPendingOrderThenDeliveringItRecordsItsContainersOnce() throws Exception {
+        long orderId = createOrder("0");
+        long newOrderId = editOrder(orderId, "Pending", "1");
+
+        deliver(newOrderId);
 
         assertThat(containerActivity()).containsExactly(
-                "B order=" + orderId + " round=3 slim=0",
-                "BC order=" + orderId + " round=0 slim=0",
-                "RO order=" + orderId + " round=1 slim=0",
                 "B order=" + newOrderId + " round=3 slim=0",
                 "BC order=" + newOrderId + " round=0 slim=0",
                 "RO order=" + newOrderId + " round=1 slim=0");
     }
 
-    /**
-     * KNOWN BUG (pinned): cancelling marks the order cancelled but does not undo the container
-     * balance that was added when the order was created.
-     */
     @Test
-    void cancellingAnOrderMarksItCancelledButKeepsTheContainerBalance() throws Exception {
+    void returnedContainersOnTheirOwnAreNotTouchedByOrderEdits() throws Exception {
+        this.jdbc.update("INSERT INTO container (customer_id, order_id, status, round_count, slim_count) "
+                + "VALUES (?, 0, 'R', 4, 0)", this.customerId);
         long orderId = createOrder("0");
+        deliver(orderId);
 
-        this.mvc.perform(post("/orders/cancel").param("orderId", String.valueOf(orderId)))
-                .andExpect(redirectedUrl("/orders/list"));
+        editOrder(orderId, "Delivered", "1");
+
+        assertThat(containerActivity()).contains("R order=0 round=4 slim=0");
+    }
+
+    @Test
+    void cancellingAPendingOrderTakesBackItsContainers() throws Exception {
+        long orderId = createOrder("0");
+        assertThat(customer().get("total_round")).isEqualTo(2);
+
+        cancel(orderId);
 
         assertThat(order(orderId).get("status")).isEqualTo("Cancelled");
         assertThat(debts()).isEmpty();
+        assertThat(customer().get("total_round")).as("borrowed 3, returned 1, now undone").isEqualTo(0);
+    }
+
+    @Test
+    void cancellingTheSameOrderTwiceOnlyTakesBackOnce() throws Exception {
+        long orderId = createOrder("0");
+
+        cancel(orderId);
+        cancel(orderId);
+
+        assertThat(customer().get("total_round")).isEqualTo(0);
+    }
+
+    @Test
+    void aDeliveredOrderCannotBeCancelled() throws Exception {
+        long orderId = createOrder("0");
+        deliver(orderId);
+
+        cancel(orderId);
+
+        assertThat(order(orderId).get("status")).isEqualTo("Delivered");
         assertThat(customer().get("total_round")).isEqualTo(2);
+        assertThat(debts()).extracting(d -> d.get("amount")).containsExactly(new BigDecimal("165.00"));
     }
 }

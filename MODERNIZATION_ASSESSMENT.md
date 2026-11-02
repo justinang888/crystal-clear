@@ -15,6 +15,8 @@ _Assessed 2026-10-31. Read-only review; no code was changed._
 > Tomcat 11), Jakarta JSTL, Flyway, Maven 3.9. The vulnerable libraries in finding 6 are gone
 > and the security configuration is now loaded (finding 2). Role-based access (finding 3) and
 > output escaping (finding 5) are still open.
+>
+> Phase 3 has started: the three bugs found by the Phase 1 tests are fixed (section 3).
 
 ## 1. What Aurora is today
 
@@ -65,7 +67,7 @@ _Assessed 2026-10-31. Read-only review; no code was changed._
 - **Business logic lives in controllers.** `OrderController` (1,041 lines) and `CustomerController` (639 lines) hold most of the domain rules. That makes them hard to test or change safely.
 - **`ddl-auto=update` on production.** Hibernate changes the live schema silently on startup and never drops or renames anything. Schema history currently lives only in the ad-hoc files under `sql/`.
 - **Legacy date types.** The code mixes `java.sql.Date`, `Timestamp` and `LocalDate`. The DB URL in `start_app.cmd` pins `serverTimezone=Asia/Manila`, but the property files don't, so dev and prod can disagree on dates near midnight.
-- **Found by the Phase 1 tests** (each is pinned by a test marked KNOWN BUG):
+- **Found by the Phase 1 tests**, all fixed in Phase 3 (2026-11-02), each with tests that check the fix:
   - Editing an order never deletes its container activity: the old borrow/buy/return rows stay
     and a second set is added for the new order id, so container history double-counts.
   - Cancelling an order doesn't undo the container balance added when the order was created.

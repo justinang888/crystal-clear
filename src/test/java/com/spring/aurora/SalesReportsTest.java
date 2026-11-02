@@ -89,6 +89,21 @@ class SalesReportsTest extends PostgresIntegrationTest {
     }
 
     @Test
+    void dailySalesKeepTheCentsWhenAmountsDoNotAddUpExactly() throws Exception {
+        // As doubles, 55.10 + 60.20 is 115.30000000000001; the report used to show "115".
+        this.jdbc.update("INSERT INTO payment (customer_id, amount, wh_tax, payment_type, remarks, created_at) VALUES "
+                + "(?, 55.10, 0.00, 'CASH', 'a', '2026-03-20'), (?, 60.20, 0.00, 'CASH', 'b', '2026-03-20')",
+                this.customerId, this.customerId);
+        this.jdbc.update("INSERT INTO expense (amount, description, created_at) VALUES (0.10, 'Tape', '2026-03-20')");
+
+        Map<String, Object> model = model("/orders/daily?d=2026-03-20");
+
+        assertThat(model.get("totalCashPayments")).isEqualTo("115.30");
+        assertThat(model.get("totalExpenses")).isEqualTo("0.10");
+        assertThat(model.get("netCash")).isEqualTo("115.20");
+    }
+
+    @Test
     void monthlyTotalsAddUpEveryOrderInTheMonth() throws Exception {
         Map<String, Object> model = model("/orders/monthly?d=03-2026");
 
