@@ -1,6 +1,9 @@
 # Aurora download (database dumps, WARs, original source) - kept out of this repo
 AURORA-*/
 
+# Local trial run on this PC (WAR, start script, database setup with customer data)
+local/
+
 dumps/
 notes/
 *.war
