@@ -1,5 +1,7 @@
 package com.spring.aurora.util;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 import com.spring.aurora.model.Expense;
@@ -67,26 +69,11 @@ public class ReportUtil {
 		}
 	}
 	
+	/**
+	 * Formats an amount such as "" + someDouble with exactly two decimals, rounding half up.
+	 * Handles the long binary tails of double sums (115.30000000000001) and E notation (1.2E7).
+	 */
 	public static String applyCurrencyFormat (String value) {
-		
-		String[] splitValue = value.split("\\.");
-		
-		StringBuffer formattedStr = new StringBuffer();
-
-		if (splitValue.length == 2) {
-			
-			formattedStr.append(splitValue[0]);
-			if (splitValue[1].length() == 2) {
-				return value;
-			} else if (splitValue[1].length() == 1) {
-				formattedStr.append(".");
-				formattedStr.append(splitValue[1]);
-				formattedStr.append("0");
-			}
-		} else {
-			formattedStr.append(".00");
-		}
-		
-		return formattedStr.toString();
+		return new BigDecimal(value).setScale(2, RoundingMode.HALF_UP).toPlainString();
 	}
 }

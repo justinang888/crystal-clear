@@ -14,16 +14,19 @@ class ReportUtilTest {
     }
 
     /**
-     * KNOWN BUG (pinned): the daily sales totals are built with "" + double. Sums of amounts
-     * with cents often have long binary tails (0.1 + 0.2 = 0.30000000000000004), and from
-     * 10 million up Java prints doubles in E notation. Both lose the cents or the whole amount.
+     * The daily sales totals are built with "" + double. Sums of amounts with cents often have
+     * long binary tails (55.10 + 60.20 = 115.30000000000001), and from 10 million up Java prints
+     * doubles in E notation. The formatter used to drop the cents or the whole amount for these.
      */
     @Test
-    void currencyFormatDropsCentsFromLongDecimalsAndBreaksOnENotation() {
-        assertThat(ReportUtil.applyCurrencyFormat("" + (0.1 + 0.2))).isEqualTo("0");
-        assertThat(ReportUtil.applyCurrencyFormat("" + (55.10 + 60.20))).isEqualTo("115");
-        assertThat(ReportUtil.applyCurrencyFormat("" + 12_000_000.0)).isEqualTo("1");
-        assertThat(ReportUtil.applyCurrencyFormat("100")).isEqualTo(".00");
+    void currencyFormatKeepsCentsFromLongDecimalsAndENotation() {
+        assertThat(ReportUtil.applyCurrencyFormat("" + (0.1 + 0.2))).isEqualTo("0.30");
+        assertThat(ReportUtil.applyCurrencyFormat("" + (55.10 + 60.20))).isEqualTo("115.30");
+        assertThat(ReportUtil.applyCurrencyFormat("" + 12_000_000.0)).isEqualTo("12000000.00");
+        assertThat(ReportUtil.applyCurrencyFormat("" + 12_345_678.9)).isEqualTo("12345678.90");
+        assertThat(ReportUtil.applyCurrencyFormat("100")).isEqualTo("100.00");
+        assertThat(ReportUtil.applyCurrencyFormat("" + (0.0 - 25.5))).isEqualTo("-25.50");
+        assertThat(ReportUtil.applyCurrencyFormat("0.005")).as("rounds half up").isEqualTo("0.01");
     }
 
     @Test

@@ -59,6 +59,9 @@ public class OrderController {
     private static final String monthsWith31[] = {"01", "03", "05", "07", "08", "10", "12"};
     private static final String monthsStr[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
 
+    /** Container activity statuses that belong to an order: borrowed, bought, returned with the order. */
+    private static final List<String> ORDER_CONTAINER_ACTIVITY = Arrays.asList("B", "BC", "RO");
+
     //	@Autowired
     //	OrderFormValidator orderFormValidator;
     //	@InitBinder
@@ -637,11 +640,25 @@ public class OrderController {
 
         if (result.hasErrors()) {
             return "list-orders";
-        } else {
-            this.orderService.cancelOrder(orderId);
-            redirectAttributes.addFlashAttribute("msg", "Order has been cancelled.");
         }
 
+        order = this.orderService.findOrderByOrderId(orderId);
+        // Only pending orders can be cancelled (the order list disables Cancel for the others),
+        // so a repeated request can't undo the container balance twice.
+        if (!"Pending".equalsIgnoreCase(order.getStatus())) {
+            redirectAttributes.addFlashAttribute("msg", "Only pending orders can be cancelled.");
+            return "redirect:/orders/list";
+        }
+
+        this.orderService.cancelOrder(orderId);
+
+        // Take back the containers this order added to the customer's balance when it was created.
+        Customer customer = this.customerService.view(order.getCustomerId());
+        customer.setTotalRound(customer.getTotalRound() - order.getRoundRefillOnlyCount() + Integer.parseInt(order.getRoundReturned()));
+        customer.setTotalSlim(customer.getTotalSlim() - order.getSlimRefillOnlyCount() + Integer.parseInt(order.getSlimReturned()));
+        this.customerService.update(customer);
+
+        redirectAttributes.addFlashAttribute("msg", "Order has been cancelled.");
         return "redirect:/orders/list";
     }
 
@@ -656,15 +673,8 @@ public class OrderController {
             order = this.orderService.findOrderByOrderId(orderId);
             this.saveDebt(order.getAmountPaid(), order.getTotalAmount(), order.getCustomerId(), order.getOrderId(), Date.valueOf(LocalDate.now()), order.getOrderId());
 
-            // Check first if already saved prior to delivery!
-            boolean saveReturnedContainers = true;
-
-            for (Container con : this.containerService.findAllByCustomerId(order.getCustomerId())) {
-                if (con.getOrderId() != null && con.getOrderId() != 0 && con.getOrderId() == order.getOrderId()) {
-                    saveReturnedContainers = false;
-                    break;
-                }
-            }
+            // An order edited while pending already has container activity: replace it, don't add to it.
+            this.deleteOrderContainerActivity(order.getCustomerId(), order.getOrderId());
 
             int slimOutGoingCount = order.getSlimRefillOnlyCount() + order.getSlimFreeCount();
             int roundOutGoingCount = order.getRoundRefillOnlyCount() + order.getRoundFreeCount();
@@ -674,7 +684,7 @@ public class OrderController {
 
             this.saveContainerActivity(slimOutGoingCount, roundOutGoingCount, slimBuyCount, roundBuyCount,
                     Integer.parseInt(order.getSlimReturned()), Integer.parseInt(order.getRoundReturned()),
-                    order.getCustomerId(), order.getOrderId(), saveReturnedContainers);
+                    order.getCustomerId(), order.getOrderId(), true);
 
             this.orderService.setToDelivered(orderId);
             redirectAttributes.addFlashAttribute("msg", "Order has been set to delivered.");
@@ -694,15 +704,8 @@ public class OrderController {
             order = this.orderService.findOrderByOrderId(orderId);
             this.saveDebt(order.getAmountPaid(), order.getTotalAmount(), order.getCustomerId(), order.getOrderId(), Date.valueOf(LocalDate.now()), order.getOrderId());
 
-            // Check first if already saved prior to delivery!
-            boolean saveReturnedContainers = true;
-
-            for (Container con : this.containerService.findAllByCustomerId(order.getCustomerId())) {
-                if (con.getOrderId() != 0 && con.getOrderId() == order.getOrderId()) {
-                    saveReturnedContainers = false;
-                    break;
-                }
-            }
+            // An order edited while pending already has container activity: replace it, don't add to it.
+            this.deleteOrderContainerActivity(order.getCustomerId(), order.getOrderId());
 
             int slimOutGoingCount = order.getSlimRefillOnlyCount() + order.getSlimFreeCount();
             int roundOutGoingCount = order.getRoundRefillOnlyCount() + order.getRoundFreeCount();
@@ -712,7 +715,7 @@ public class OrderController {
 
             this.saveContainerActivity(slimOutGoingCount, roundOutGoingCount, slimBuyCount, roundBuyCount,
                     Integer.parseInt(order.getSlimReturned()), Integer.parseInt(order.getRoundReturned()),
-                    order.getCustomerId(), order.getOrderId(), saveReturnedContainers);
+                    order.getCustomerId(), order.getOrderId(), true);
 
             this.orderService.setToDelivered(orderId);
             redirectAttributes.addFlashAttribute("msg", "Order has been set to delivered.");
@@ -983,40 +986,49 @@ public class OrderController {
     public void updateContainerActivity(int slimBorrow, int roundBorrow, int slimBuy, int roundBuy, int slimReturned, int roundReturned,
             long customerId, long orderId, long newOrderId, Timestamp containerActivityDate) {
 
+        // The edited order is saved under a new id: move its activity there instead of copying it.
+        this.deleteOrderContainerActivity(customerId, orderId);
+
         Container containerActivity = new Container();
         containerActivity.setCustomerId(customerId);
-        containerActivity.setOrderId(orderId);
+        containerActivity.setOrderId(newOrderId);
         containerActivity.setRoundCount(roundBorrow);
         containerActivity.setSlimCount(slimBorrow);
         containerActivity.setStatus("B");
         containerActivity.setCreatedAt(containerActivityDate);
-        this.containerService.delete(containerActivity);
-        containerActivity.setOrderId(newOrderId);
         this.containerService.insert(containerActivity);
 
         // Buy Container - code is BC
         containerActivity = new Container();
         containerActivity.setCustomerId(customerId);
-        containerActivity.setOrderId(orderId);
+        containerActivity.setOrderId(newOrderId);
         containerActivity.setRoundCount(roundBuy);
         containerActivity.setSlimCount(slimBuy);
         containerActivity.setStatus("BC"); // Buy Container
         containerActivity.setCreatedAt(containerActivityDate);
-        this.containerService.delete(containerActivity);
-        containerActivity.setOrderId(newOrderId);
         this.containerService.insert(containerActivity);
 
         if ((slimReturned != 0 || roundReturned != 0)) {
             containerActivity = new Container();
             containerActivity.setCustomerId(customerId);
-            containerActivity.setOrderId(orderId);
+            containerActivity.setOrderId(newOrderId);
             containerActivity.setRoundCount(roundReturned);
             containerActivity.setSlimCount(slimReturned);
             containerActivity.setStatus("RO"); // Return with Order
             containerActivity.setCreatedAt(containerActivityDate);
-            this.containerService.delete(containerActivity);
-            containerActivity.setOrderId(newOrderId);
             this.containerService.insert(containerActivity);
+        }
+    }
+
+    /**
+     * Deletes the borrow (B), buy (BC) and return-with-order (RO) rows recorded for an order.
+     * Containers returned on their own (R) have no order and are never touched.
+     */
+    private void deleteOrderContainerActivity(long customerId, long orderId) {
+        for (Container activity : this.containerService.findAllByCustomerIdAndOrderId(customerId, orderId)) {
+            if (ORDER_CONTAINER_ACTIVITY.contains(activity.getStatus())) {
+                this.containerService.delete(activity);
+            }
         }
     }
 

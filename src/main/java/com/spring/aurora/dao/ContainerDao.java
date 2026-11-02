@@ -14,6 +14,8 @@ public interface ContainerDao extends CrudRepository<Container, Long> {
 
     List<Container> findAllByCustomerId(long customerId);
 
+    List<Container> findAllByCustomerIdAndOrderId(long customerId, Long orderId);
+
     @Query("select c from Container c where cast(c.createdAt as date) = :date")
     List<Container> findContainerActivityByDate(Date date);
 
