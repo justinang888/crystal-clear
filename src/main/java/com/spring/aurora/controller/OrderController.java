@@ -13,6 +13,7 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -120,8 +121,7 @@ public class OrderController {
 
             for (CustomerPrice cp : cpList) {
                 if (p.getProductId() == cp.getProductId()) {
-                    Product overridenProduct = p;
-                    p.setSellingPrice(cp.getSellingPrice());
+                    Product overridenProduct = withCustomerPrice(p, cp);
                     overridenProductList.add(overridenProduct);
                     overriden = true;
                     break;
@@ -217,8 +217,7 @@ public class OrderController {
 
             for (CustomerPrice cp : cpList) {
                 if (p.getProductId() == cp.getProductId()) {
-                    Product overridenProduct = p;
-                    p.setSellingPrice(cp.getSellingPrice());
+                    Product overridenProduct = withCustomerPrice(p, cp);
                     overriddenProductList.add(overridenProduct);
                     overridden = true;
                     break;
@@ -634,7 +633,7 @@ public class OrderController {
         return order;
     }
 
-    @RequestMapping("/cancel")
+    @RequestMapping(value = "/cancel", method = RequestMethod.POST)
     public String cancelOrder(Order order, BindingResult result, @RequestParam long orderId,
             final RedirectAttributes redirectAttributes) {
 
@@ -662,7 +661,7 @@ public class OrderController {
         return "redirect:/orders/list";
     }
 
-    @RequestMapping("/deliver")
+    @RequestMapping(value = "/deliver", method = RequestMethod.POST)
     public String deliverOrder(Order order, BindingResult result, @RequestParam long orderId,
             final RedirectAttributes redirectAttributes) {
 
@@ -693,7 +692,7 @@ public class OrderController {
         return "redirect:/orders/list";
     }
 
-    @RequestMapping("/deliverPending")
+    @RequestMapping(value = "/deliverPending", method = RequestMethod.POST)
     public String deliverPendingOrder(Order order, BindingResult result, @RequestParam long orderId,
             final RedirectAttributes redirectAttributes) {
 
@@ -1018,6 +1017,17 @@ public class OrderController {
             containerActivity.setCreatedAt(containerActivityDate);
             this.containerService.insert(containerActivity);
         }
+    }
+
+    /**
+     * The product as this customer pays for it, for the order form. A copy: changing the price on the
+     * product itself would be saved by Hibernate and change the list price for every customer.
+     */
+    private static Product withCustomerPrice(Product product, CustomerPrice customerPrice) {
+        Product shown = new Product();
+        BeanUtils.copyProperties(product, shown);
+        shown.setSellingPrice(customerPrice.getSellingPrice());
+        return shown;
     }
 
     /**

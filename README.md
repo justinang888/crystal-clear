@@ -1,7 +1,36 @@
 # aurora
 Water Station System
 
-Requires Java 21. Built on Spring Boot 4 with JSP views and PostgreSQL.
+Requires Java 21. Built on Spring Boot 4 and PostgreSQL, with a React interface in `frontend/`.
+
+## Building
+
+```bash
+./mvnw package
+```
+
+This builds the React app too (Maven downloads its own Node into `frontend/node` the first time, so
+the build PC needs internet; the shop PC running the WAR does not). Add `-Dskip.frontend=true` when
+only Java code changed.
+
+## How the interface works
+
+The React app (React 19, TypeScript, Vite, Tailwind CSS 4, shadcn/ui, TanStack Query and Table) is
+served by Spring Boot at `/aurora`. Every screen keeps its old address, such as `/aurora/orders/list?d=today`:
+
+- Opening an address in the browser gets the app (`index.html`), which shows that screen.
+- The app asks the same address for JSON. The controller runs exactly as it did for the JSP pages,
+  and the model it fills comes back as JSON (`config/web/ModelJsonView`), with `view` and any form `errors`.
+- Saves are the same form posts as before; the controller's redirect answers with the next screen's
+  data and its message. Logging in and out are posts to `/login` and `/logout`; CSRF uses the `XSRF-TOKEN` cookie.
+
+To work on the screens with live reload, start the demo (below), then:
+
+```bash
+cd frontend && npm install && npm run dev
+```
+
+and open http://localhost:5173/aurora.
 
 ## Running the tests
 
@@ -20,3 +49,14 @@ cd migration/postgres && python -m unittest test_mysqldump_to_pg
 
 When a test pins behavior that is known to be wrong, mark it **KNOWN BUG** so upgrades
 can't change it silently, and update it to the correct behavior when the bug is fixed.
+
+## Trying the screens with made-up data
+
+This starts the app on http://localhost:8081/aurora with its own throwaway PostgreSQL, filled with
+made-up customers and orders (`src/test/java/com/spring/aurora/demo/DemoApplication.java`).
+Log in as `demo` / `demo`; everything is gone when it stops. Build the app first (`./mvnw package`)
+so the React files are in `target/classes/static`.
+
+```bash
+./mvnw spring-boot:test-run -Dskip.frontend=true -Dspring-boot.test-run.main-class=com.spring.aurora.demo.DemoApplication
+```

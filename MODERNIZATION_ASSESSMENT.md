@@ -17,6 +17,11 @@ _Assessed 2026-10-31. Read-only review; no code was changed._
 > output escaping (finding 5) are still open.
 >
 > Phase 3 has started: the three bugs found by the Phase 1 tests are fixed (section 3).
+>
+> Phase 4 is done as a React app (owner's decision, 2026-11-07), replacing all JSP pages at once:
+> React 19, TypeScript, Vite, Tailwind CSS 4 and shadcn/ui in `frontend/`, built into the same WAR.
+> The controllers are unchanged: they still fill a Model, which is sent as JSON to the app
+> (`config/web`). React escapes everything it shows, which closes finding 5.
 
 ## 1. What Aurora is today
 
@@ -74,6 +79,10 @@ _Assessed 2026-10-31. Read-only review; no code was changed._
   - `ReportUtil.applyCurrencyFormat`, used for the daily sales totals, drops the cents when a
     sum of doubles has a long decimal tail (55.10 + 60.20 shows as "115") and breaks on
     amounts of 10 million or more, which Java prints in E notation.
+- **Found during Phase 4**, fixed 2026-11-07 with a test: opening the new-order or edit-order form
+  for a customer with their own price saved that price as the product's list price, so every other
+  customer was charged it from then on. Product list prices on the shop's live data may already
+  have been changed this way and should be checked.
 - **Broken link.** `users.jsp` links to `/user/delete/{username}` (a destructive GET), but no controller maps it.
 - **JVM crash on record.** `hs_err_pid7944.log` shows a C2 JIT compiler crash on Java 8u372. That is another reason to move to a current LTS JDK.
 
@@ -105,7 +114,7 @@ The app is small, has a clear domain, and is in daily use, so I recommend an **i
 - Move money to `BigDecimal`/`DECIMAL(12,2)` with a Flyway migration.
 - Move order/payment/debt workflows from the controllers into transactional services.
 - Replace `java.sql.Date`/`Timestamp` with `LocalDate`/`LocalDateTime`; use `@GetMapping`/`@PostMapping`; use constructor injection in place of field `@Autowired`; use SLF4J in place of `System.out` (15 occurrences).
-- Make the destructive actions POST + CSRF only.
+- Make the destructive actions POST + CSRF only. *(Done in Phase 4: delivering and cancelling an order now accept only a POST with the CSRF token. Before, a GET link to `/orders/deliver` or `/orders/cancel` from any site could change an order for a logged-in user.)*
 
 ### Phase 4 – UI refresh (optional, 1–2 weeks)
 - Either keep JSP and upgrade Bootstrap 3 → 5 (jQuery can stay for DataTables), escaping every output with `<c:out>`/`fn:escapeXml`; **or** migrate views to **Thymeleaf**, which escapes by default, removes the JSP/WAR packaging constraint, and is the path Spring recommends.
@@ -113,6 +122,7 @@ The app is small, has a clear domain, and is in daily use, so I recommend an **i
 
 ### Not recommended now
 A full SPA rewrite (React plus a REST API). It would double the moving parts for a small single-site team. The data model and workflows are the valuable parts, and they survive the phases above intact.
+*(Superseded: the owner chose React for Phase 4. It was done without a separate REST API, by sending the existing controllers' models as JSON, so the workflows were not rewritten.)*
 
 ## 5. Effort summary
 
