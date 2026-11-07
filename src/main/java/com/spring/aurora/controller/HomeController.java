@@ -1,5 +1,6 @@
 package com.spring.aurora.controller;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -9,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 
 import javax.sql.DataSource;
 
@@ -21,6 +23,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import com.spring.aurora.model.ArSummary;
+import com.spring.aurora.model.ArSummaryRepository;
 import com.spring.aurora.model.Order;
 import com.spring.aurora.service.OrderService;
 
@@ -34,6 +38,9 @@ public class HomeController {
 
     @Autowired
     private OrderService orderService;
+
+    @Autowired
+    private ArSummaryRepository arSummaryRepository;
 
     @RequestMapping(value = "/home", method = RequestMethod.GET)
     public String home(Locale locale, Model model) {
@@ -73,6 +80,11 @@ public class HomeController {
         model.addAttribute("pendingCount", pendingCount);
         model.addAttribute("runningRound", runningRound);
         model.addAttribute("runningSlim", runningSlim);
+        // What all customers owe, from the same ar_summary rows as the A/R summary screen.
+        model.addAttribute("arTotal", this.arSummaryRepository.findAll().stream()
+                .map(ArSummary::getArAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
         return "view-dashboard";
     }
 
