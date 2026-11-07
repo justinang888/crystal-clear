@@ -1,6 +1,10 @@
 package com.spring.aurora;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasProperty;
+import static org.hamcrest.Matchers.is;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 
 import java.math.BigDecimal;
@@ -40,6 +44,20 @@ class OrderLifecycleTest extends PostgresIntegrationTest {
                 .param("orderInterval", "5")
                 .param("opList[0].productId", "1").param("opList[0].quantity", "3")
                 .param("opList[1].productId", "2").param("opList[1].quantity", "");
+    }
+
+    @Test
+    void orderFormsShowTheCustomersPriceWithoutChangingTheListPrice() throws Exception {
+        this.jdbc.update("INSERT INTO customer_price (customer_id, product_id, selling_price) VALUES (?, 1, 50.00)", this.customerId);
+        long orderId = createOrder("165.00");
+
+        this.mvc.perform(get("/orders/neworder").param("customerId", String.valueOf(this.customerId)))
+                .andExpect(model().attribute("productList", hasItem(hasProperty("sellingPrice", is(50.0)))));
+        this.mvc.perform(get("/orders/edit").param("orderId", String.valueOf(orderId)));
+
+        // Opening the forms used to save the customer's 50.00 as the product's own price.
+        assertThat(this.jdbc.queryForObject("SELECT selling_price FROM products WHERE product_id = 1", BigDecimal.class))
+                .isEqualByComparingTo("55.00");
     }
 
     private long createOrder(String amountPaid) throws Exception {
