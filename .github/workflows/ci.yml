@@ -1,0 +1,60 @@
+# Checks every push to main and every pull request: the same commands as CLAUDE.md.
+# Uses no secrets: the Java tests start their own throwaway PostgreSQL.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend (lint, types, build, audit)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.12.0'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - name: Type check and build
+        run: npm run build
+      - name: Dependency audit (fails on high or critical)
+        run: npm audit --audit-level=high
+
+  backend:
+    name: Java tests and WAR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      # Builds the WAR with the React app inside it, as a release would, and runs every Java test.
+      - run: ./mvnw -B verify
+
+  dump-converter:
+    name: Dump converter tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest test_mysqldump_to_pg
+        working-directory: migration/postgres
