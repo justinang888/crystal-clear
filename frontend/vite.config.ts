@@ -20,8 +20,12 @@ export default defineConfig({
     proxy: {
       '/aurora': {
         target: 'http://localhost:8081',
-        // Page loads stay with Vite; data, login and saves go to Spring.
-        bypass: (req) => (req.headers.accept?.includes('text/html') ? req.url : undefined),
+        // Page loads and Vite's own files (its client, the source modules) stay with Vite;
+        // data, login and saves go to Spring.
+        bypass: (req) =>
+          req.headers.accept?.includes('text/html') || /^\/aurora\/(@|src\/|node_modules\/)/.test(req.url ?? '')
+            ? req.url
+            : undefined,
       },
     },
   },
