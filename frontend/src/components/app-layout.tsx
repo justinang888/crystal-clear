@@ -108,12 +108,12 @@ export function AppLayout() {
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" asChild>
                 <Link to="/dashboard">
-                  <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                  <span className="flex size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                     <Droplets className="size-4" />
                   </span>
                   <span className="grid leading-tight">
                     <span className="font-semibold">Crystal Clear</span>
-                    <span className="text-xs text-muted-foreground">Aurora back office</span>
+                    <span className="text-xs text-sidebar-foreground/70">Aurora back office</span>
                   </span>
                 </Link>
               </SidebarMenuButton>
@@ -128,7 +128,13 @@ export function AppLayout() {
                 <SidebarMenu>
                   {group.items.map((item) => (
                     <SidebarMenuItem key={item.to}>
-                      <SidebarMenuButton asChild isActive={isActive(item, location.pathname)} tooltip={item.label}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive(item, location.pathname)}
+                        tooltip={item.label}
+                        // The screen you're on is a light pill on the blue, clearly apart from hover.
+                        className="data-active:bg-sidebar-primary data-active:text-sidebar-primary-foreground data-active:hover:bg-sidebar-primary data-active:hover:text-sidebar-primary-foreground"
+                      >
                         <Link to={item.to}>
                           <item.icon />
                           <span>{item.label}</span>
@@ -175,7 +181,7 @@ function UserMenu({ username }: { username?: string }) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton size="lg">
-              <span className="flex size-8 items-center justify-center rounded-full bg-muted text-sm font-semibold uppercase">
+              <span className="flex size-8 items-center justify-center rounded-full bg-sidebar-accent text-sm font-semibold text-sidebar-accent-foreground uppercase">
                 {username?.slice(0, 1) ?? '·'}
               </span>
               <span className="truncate font-medium">{username ?? '…'}</span>
