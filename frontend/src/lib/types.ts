@@ -106,6 +106,8 @@ export interface DashboardData extends PageData {
   pendingCount: number
   runningRound: number
   runningSlim: number
+  /** What all customers owe, the same total as the A/R summary. */
+  arTotal: number
 }
 
 export interface CustomersData extends PageData {

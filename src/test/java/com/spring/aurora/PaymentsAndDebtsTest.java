@@ -1,6 +1,8 @@
 package com.spring.aurora;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.comparesEqualTo;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
@@ -45,6 +47,37 @@ class PaymentsAndDebtsTest extends PostgresIntegrationTest {
         assertThat(this.jdbc.queryForList("SELECT amount FROM debt WHERE customer_id = ? ORDER BY debt_id",
                 BigDecimal.class, this.customerId)).containsExactly(new BigDecimal("800.00"), new BigDecimal("35.50"));
         assertThat(arSummary()).isEqualByComparingTo("835.50");
+    }
+
+    @Test
+    void theDashboardShowsTheSameArTotalAsTheArSummary() throws Exception {
+        logDebt("800.00");
+        this.mvc.perform(post("/payments/save")
+                .param("customerId", String.valueOf(this.customerId))
+                .param("amount", "100.00")
+                .param("withholdingTax", "0.50")
+                .param("paymentType", "CASH")
+                .param("remarks", "Counter")
+                .param("createdAt", "2026-03-15"))
+                .andExpect(redirectedUrl("/payments/list?cid=" + this.customerId));
+        long otherCustomerId = insertCustomer("Other Customer");
+        this.mvc.perform(post("/debts/save")
+                .param("customerId", String.valueOf(otherCustomerId))
+                .param("amount", "35.50")
+                .param("remarks", "Beginning balance")
+                .param("createdAt", "2026-03-01"));
+
+        // 800.00 - 100.00 - 0.50 + 35.50
+        this.mvc.perform(get("/dashboard"))
+                .andExpect(model().attribute("arTotal", comparesEqualTo(new BigDecimal("735.00"))));
+        this.mvc.perform(get("/debts/listAll"))
+                .andExpect(model().attribute("arTotal", 735.0));
+    }
+
+    @Test
+    void theDashboardArTotalIsZeroWhenNobodyOwes() throws Exception {
+        this.mvc.perform(get("/dashboard"))
+                .andExpect(model().attribute("arTotal", comparesEqualTo(BigDecimal.ZERO)));
     }
 
     @Test

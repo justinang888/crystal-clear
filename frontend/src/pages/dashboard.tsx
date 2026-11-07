@@ -5,14 +5,13 @@ import { PageHeader, PageState, Stat } from '@/components/page'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { usePage } from '@/hooks/use-page'
-import { displayDate } from '@/lib/format'
+import { displayDate, peso, toNumber } from '@/lib/format'
 import type { DashboardData } from '@/lib/types'
 
 const QUICK_LINKS = [
   { to: '/orders/list', label: "Today's orders", icon: Truck },
   { to: '/orders/pending', label: 'Orders waiting for delivery', icon: Hourglass },
   { to: '/customers/dailyduedates', label: 'Customers due today', icon: Bell },
-  { to: '/debts/listAll', label: 'Who owes money (A/R)', icon: Coins },
 ]
 
 const REPORTS = [
@@ -46,7 +45,7 @@ export function DashboardPage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Link to="/orders/pending" className="rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
           <Stat label="Pending orders" value={data.pendingCount} icon={<Hourglass />} tone="warning" className="h-full transition-colors hover:border-primary/40" />
         </Link>
@@ -55,6 +54,15 @@ export function DashboardPage() {
         </Link>
         <Link to="/container/listAll" className="rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
           <Stat label="Slim borrowed today" value={data.runningSlim} icon={<RectangleVertical />} tone="slim" className="h-full transition-colors hover:border-primary/40" />
+        </Link>
+        <Link to="/debts/listAll" className="rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+          <Stat
+            label="Total owed (A/R)"
+            value={peso(data.arTotal)}
+            icon={<Coins />}
+            tone={toNumber(data.arTotal) > 0 ? 'danger' : undefined}
+            className="h-full transition-colors hover:border-primary/40"
+          />
         </Link>
       </div>
 
