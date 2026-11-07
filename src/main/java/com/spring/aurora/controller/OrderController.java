@@ -633,7 +633,7 @@ public class OrderController {
         return order;
     }
 
-    @RequestMapping("/cancel")
+    @RequestMapping(value = "/cancel", method = RequestMethod.POST)
     public String cancelOrder(Order order, BindingResult result, @RequestParam long orderId,
             final RedirectAttributes redirectAttributes) {
 
@@ -661,7 +661,7 @@ public class OrderController {
         return "redirect:/orders/list";
     }
 
-    @RequestMapping("/deliver")
+    @RequestMapping(value = "/deliver", method = RequestMethod.POST)
     public String deliverOrder(Order order, BindingResult result, @RequestParam long orderId,
             final RedirectAttributes redirectAttributes) {
 
@@ -692,7 +692,7 @@ public class OrderController {
         return "redirect:/orders/list";
     }
 
-    @RequestMapping("/deliverPending")
+    @RequestMapping(value = "/deliverPending", method = RequestMethod.POST)
     public String deliverPendingOrder(Order order, BindingResult result, @RequestParam long orderId,
             final RedirectAttributes redirectAttributes) {
 

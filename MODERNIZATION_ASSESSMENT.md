@@ -105,7 +105,7 @@ The app is small, has a clear domain, and is in daily use, so I recommend an **i
 - Move money to `BigDecimal`/`DECIMAL(12,2)` with a Flyway migration.
 - Move order/payment/debt workflows from the controllers into transactional services.
 - Replace `java.sql.Date`/`Timestamp` with `LocalDate`/`LocalDateTime`; use `@GetMapping`/`@PostMapping`; use constructor injection in place of field `@Autowired`; use SLF4J in place of `System.out` (15 occurrences).
-- Make the destructive actions POST + CSRF only.
+- Make the destructive actions POST + CSRF only. *(Done in Phase 4: delivering and cancelling an order now accept only a POST with the CSRF token. Before, a GET link to `/orders/deliver` or `/orders/cancel` from any site could change an order for a logged-in user.)*
 
 ### Phase 4 – UI refresh (optional, 1–2 weeks)
 - Either keep JSP and upgrade Bootstrap 3 → 5 (jQuery can stay for DataTables), escaping every output with `<c:out>`/`fn:escapeXml`; **or** migrate views to **Thymeleaf**, which escapes by default, removes the JSP/WAR packaging constraint, and is the path Spring recommends.

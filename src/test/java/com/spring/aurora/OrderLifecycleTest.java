@@ -234,6 +234,19 @@ class OrderLifecycleTest extends PostgresIntegrationTest {
     }
 
     @Test
+    void deliveringOrCancellingNeedsAPostWithTheCsrfToken() throws Exception {
+        long orderId = createOrder("0");
+
+        // A GET carries no CSRF token, so a link or image on another site could otherwise change an order.
+        for (String action : List.of("/orders/deliver", "/orders/deliverPending", "/orders/cancel")) {
+            this.mvc.perform(get(action).param("orderId", String.valueOf(orderId)));
+        }
+
+        assertThat(order(orderId).get("status")).isEqualTo("Pending");
+        assertThat(debts()).isEmpty();
+    }
+
+    @Test
     void editingADeliveredOrderMovesItsContainerActivityToTheNewOrder() throws Exception {
         long orderId = createOrder("0");
         deliver(orderId);
