@@ -108,7 +108,8 @@ export function AppLayout() {
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" asChild>
                 <Link to="/dashboard">
-                  <span className="flex size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                  {/* shrink-0: the collapsed sidebar is one tile wide, so the name beside it must not squeeze it. */}
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                     <Droplets className="size-4" />
                   </span>
                   <span className="grid leading-tight">
@@ -181,7 +182,7 @@ function UserMenu({ username }: { username?: string }) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton size="lg">
-              <span className="flex size-8 items-center justify-center rounded-full bg-sidebar-accent text-sm font-semibold text-sidebar-accent-foreground uppercase">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-sm font-semibold text-sidebar-accent-foreground uppercase">
                 {username?.slice(0, 1) ?? '·'}
               </span>
               <span className="truncate font-medium">{username ?? '…'}</span>
