@@ -64,6 +64,11 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    public List<Order> findDeliveredBetween(Timestamp from, Timestamp until) {
+        return this.orderDao.findDeliveredBetween(from, until);
+    }
+
+    @Override
     public List<Order> findAllOrdersToday(Date dateParam) {
         //List<Order> pendingOrders = this.orderDao.findAllPendingOrders();
         List<Order> todayOrders = this.orderDao.findAllOrdersToday(dateParam);

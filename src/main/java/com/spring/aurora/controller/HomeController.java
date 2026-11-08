@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -27,6 +28,7 @@ import com.spring.aurora.model.ArSummary;
 import com.spring.aurora.model.ArSummaryRepository;
 import com.spring.aurora.model.Order;
 import com.spring.aurora.service.OrderService;
+import com.spring.aurora.util.SalesTrend;
 
 @Controller
 public class HomeController {
@@ -85,6 +87,15 @@ public class HomeController {
                 .map(ArSummary::getArAmount)
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add));
+
+        // The sales chart: one query for the oldest month shown up to today, grouped three ways.
+        LocalDate today = LocalDate.now();
+        List<Order> delivered = this.orderService.findDeliveredBetween(
+                Timestamp.valueOf(SalesTrend.earliestDay(today).atStartOfDay()),
+                Timestamp.valueOf(today.plusDays(1).atStartOfDay()));
+        model.addAttribute("salesByDay", SalesTrend.byDay(delivered, today));
+        model.addAttribute("salesByWeek", SalesTrend.byWeek(delivered, today));
+        model.addAttribute("salesByMonth", SalesTrend.byMonth(delivered, today));
         return "view-dashboard";
     }
 
