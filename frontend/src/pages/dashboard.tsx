@@ -48,13 +48,13 @@ export function DashboardPage() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Link to="/orders/pending" className="rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
-          <Stat label="Pending orders" value={data.pendingCount} icon={<Hourglass />} tone="warning" className="h-full transition-colors hover:border-primary/40" />
+          <Stat label="Pending orders" value={data.pendingCount} icon={<Hourglass />} tone="warning" filled className="h-full transition-[filter] hover:brightness-110" />
         </Link>
         <Link to="/container/listAll" className="rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
-          <Stat label="Round borrowed today" value={data.runningRound} icon={<Circle />} tone="round" className="h-full transition-colors hover:border-primary/40" />
+          <Stat label="Round borrowed today" value={data.runningRound} icon={<Circle />} tone="round" filled className="h-full transition-[filter] hover:brightness-110" />
         </Link>
         <Link to="/container/listAll" className="rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
-          <Stat label="Slim borrowed today" value={data.runningSlim} icon={<RectangleVertical />} tone="slim" className="h-full transition-colors hover:border-primary/40" />
+          <Stat label="Slim borrowed today" value={data.runningSlim} icon={<RectangleVertical />} tone="slim" filled className="h-full transition-[filter] hover:brightness-110" />
         </Link>
         <Link to="/debts/listAll" className="rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
           <Stat
@@ -62,7 +62,8 @@ export function DashboardPage() {
             value={`₱${peso(data.arTotal)}`}
             icon={<Coins />}
             tone={toNumber(data.arTotal) > 0 ? 'danger' : undefined}
-            className="h-full transition-colors hover:border-primary/40"
+            filled
+            className="h-full transition-[filter] hover:brightness-110"
           />
         </Link>
       </div>
