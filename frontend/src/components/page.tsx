@@ -37,22 +37,37 @@ export function PrintButton() {
   )
 }
 
+type StatTone = 'round' | 'slim' | 'warning' | 'danger'
+
+/** The whole tile tinted in its tone (background, border and number), for the dashboard. */
+const FILLED: Record<StatTone | 'none', { card: string; value: string }> = {
+  none: { card: 'border-primary/25 bg-primary/5', value: 'text-primary' },
+  round: { card: 'border-amber-500/30 bg-amber-500/8', value: 'text-amber-700 dark:text-amber-300' },
+  slim: { card: 'border-sky-500/30 bg-sky-500/8', value: 'text-sky-700 dark:text-sky-300' },
+  warning: { card: 'border-orange-500/30 bg-orange-500/8', value: 'text-orange-700 dark:text-orange-300' },
+  danger: { card: 'border-red-500/30 bg-red-500/8', value: 'text-red-700 dark:text-red-300' },
+}
+
 /** A labelled number, for report totals and the dashboard. */
 export function Stat({
   label,
   value,
   icon,
   tone,
+  filled = false,
   className,
 }: {
   label: string
   value: ReactNode
   icon?: ReactNode
-  tone?: 'round' | 'slim' | 'warning' | 'danger'
+  tone?: StatTone
+  /** Tint the whole tile, not just the icon. */
+  filled?: boolean
   className?: string
 }) {
+  const fill = filled ? FILLED[tone ?? 'none'] : undefined
   return (
-    <Card className={cn('gap-0 py-4', className)}>
+    <Card className={cn('gap-0 py-4', fill?.card, className)}>
       <CardContent className="flex items-center gap-3 px-4">
         {icon && (
           <span
@@ -69,7 +84,7 @@ export function Stat({
         )}
         <div className="min-w-0">
           <div className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</div>
-          <div className="text-xl font-semibold break-words tabular">{value}</div>
+          <div className={cn('text-xl font-semibold break-words tabular', fill?.value)}>{value}</div>
         </div>
       </CardContent>
     </Card>
