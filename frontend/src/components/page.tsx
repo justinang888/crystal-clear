@@ -39,13 +39,17 @@ export function PrintButton() {
 
 type StatTone = 'round' | 'slim' | 'warning' | 'danger'
 
-/** The whole tile tinted in its tone (background, border and number), for the dashboard. */
+/**
+ * The whole tile tinted in its tone (background, border and number), for the dashboard.
+ * The solid left strip keeps the tones apart on warm or washed-out screens, where a light
+ * cream or pink tint can look the same as white.
+ */
 const FILLED: Record<StatTone | 'none', { card: string; value: string }> = {
-  none: { card: 'border-primary/25 bg-primary/5', value: 'text-primary' },
-  round: { card: 'border-amber-500/30 bg-amber-500/8', value: 'text-amber-700 dark:text-amber-300' },
-  slim: { card: 'border-sky-500/30 bg-sky-500/8', value: 'text-sky-700 dark:text-sky-300' },
-  warning: { card: 'border-orange-500/30 bg-orange-500/8', value: 'text-orange-700 dark:text-orange-300' },
-  danger: { card: 'border-red-500/30 bg-red-500/8', value: 'text-red-700 dark:text-red-300' },
+  none: { card: 'border-primary/30 border-l-primary bg-primary/10', value: 'text-primary' },
+  round: { card: 'border-amber-500/40 border-l-amber-500 bg-amber-500/15', value: 'text-amber-700 dark:text-amber-300' },
+  slim: { card: 'border-sky-500/40 border-l-sky-500 bg-sky-500/15', value: 'text-sky-700 dark:text-sky-300' },
+  warning: { card: 'border-orange-500/40 border-l-orange-500 bg-orange-500/15', value: 'text-orange-700 dark:text-orange-300' },
+  danger: { card: 'border-red-500/40 border-l-red-500 bg-red-500/15', value: 'text-red-700 dark:text-red-300' },
 }
 
 /** A labelled number, for report totals and the dashboard. */
@@ -67,7 +71,7 @@ export function Stat({
 }) {
   const fill = filled ? FILLED[tone ?? 'none'] : undefined
   return (
-    <Card className={cn('gap-0 py-4', fill?.card, className)}>
+    <Card className={cn('gap-0 py-4', fill && 'border-l-4', fill?.card, className)}>
       <CardContent className="flex items-center gap-3 px-4">
         {icon && (
           <span
