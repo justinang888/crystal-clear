@@ -14,6 +14,35 @@ export interface Customer {
   orderInterval: number
   totalRound: number
   totalSlim: number
+  /** Asked not to be texted (the switch on the customer's page). */
+  smsOptOut: boolean
+}
+
+/** An overdue customer on the text reminders screen; skipReason is null when they can be texted. */
+export interface SmsCandidate {
+  customerId: number
+  name: string
+  /** The name the message greets: the contact person when set. */
+  greetingName: string
+  mobile: string | null
+  lastDelivered: string
+  daysSince: number
+  orderInterval: number
+  lastTexted: string | null
+  skipReason: string | null
+}
+
+/** One row of the texting log. */
+export interface SmsLogRow {
+  smsMessageId: number
+  createdAt: string
+  customerId: number
+  customerName: string | null
+  phoneNumber: string
+  body: string
+  state: string
+  error: string | null
+  createdBy: string
 }
 
 export interface Order {

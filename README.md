@@ -60,3 +60,39 @@ so the React files are in `target/classes/static`.
 ```bash
 ./mvnw spring-boot:test-run -Dskip.frontend=true -Dspring-boot.test-run.main-class=com.spring.aurora.demo.DemoApplication
 ```
+
+## Text reminders
+
+Reports > **Text Reminders** (also on Inactive Customers) lists customers whose last delivered
+order is more than their usual interval plus 2 days ago, shows each message before it goes, and
+sends them through an Android phone on the shop Wi-Fi. Every text is logged under **Sent texts**.
+The spec is [docs/specs/sms-inactive-customers.md](docs/specs/sms-inactive-customers.md).
+
+In the demo a fake phone accepts every text and sends nothing; numbers ending in `0000` always
+fail, to show what a failure looks like.
+
+### Setting up the shop phone
+
+1. On an Android phone (5.0 or later) with a SIM that has load, install
+   [SMS Gateway for Android](https://docs.sms-gate.app/) (open source).
+2. On its Home tab, turn on **Local Server** and tap **Start Service**. It shows the phone's
+   address on the Wi-Fi and a username and password.
+3. Give the phone a fixed address on the router, keep it charging, and turn off battery
+   optimisation for the app, or Android may stop it.
+4. In the app's Settings > Messages, set a short delay between texts (for example 5 to 10
+   seconds) so the network doesn't treat a batch as spam.
+5. On the shop PC, as administrator, set the phone's details once, like the database password.
+   Never put them in a file:
+
+   ```bat
+   setx /M AURORA_SMS_URL "http://<phone address>:8080"
+   setx /M AURORA_SMS_USERNAME "<username shown in the app>"
+   setx /M AURORA_SMS_PASSWORD "<password shown in the app>"
+   ```
+
+6. Restart Aurora. Before texting customers, open `http://<phone address>:8080/docs` on the PC:
+   it shows the phone's API and can send a test text. Send one to a staff number, and check that
+   sending is `POST /message` with `textMessage.text` and `phoneNumbers`, which is what Aurora
+   sends (`AndroidSmsGateway.java`).
+
+Without `AURORA_SMS_URL` the screens still open, but Send stays off.

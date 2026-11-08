@@ -20,6 +20,10 @@ public interface OrderDao extends CrudRepository<Order, Long> {
     @Query("select o from Order o where lower(o.status) = 'delivered' and o.createdAt >= :from and o.createdAt < :until")
     List<Order> findDeliveredBetween(Timestamp from, Timestamp until);
 
+    /** Each customer's last delivered order time, as [customerId, createdAt] rows; never-delivered customers have none. */
+    @Query("select o.customerId, max(o.createdAt) from Order o where lower(o.status) = 'delivered' group by o.customerId")
+    List<Object[]> findLastDeliveredPerCustomer();
+
     @Query("select o from Order o where status = 'Pending'")
     List<Order> findAllPendingOrders();
 

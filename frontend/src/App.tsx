@@ -37,6 +37,7 @@ import {
   PaymentsPage,
 } from '@/pages/money'
 import { DailySalesPage, MonthlySummaryPage, OrderFormPage, OrdersPage, PendingOrdersPage } from '@/pages/orders'
+import { SmsComposePage, SmsLogPage } from '@/pages/sms'
 
 /** Keyed by address so moving between two records of the same kind starts a fresh form. */
 function Keyed({ children }: { children: (key: string) => ReactNode }) {
@@ -63,6 +64,8 @@ const router = createBrowserRouter(
         { path: 'customers/dailyduedates', element: <DailyDueDatesPage /> },
         { path: 'customers/listinactive', element: <InactiveCustomersPage /> },
         { path: 'customers/listactive', element: <MonthlyActivePage /> },
+        { path: 'sms/compose', element: <SmsComposePage /> },
+        { path: 'sms/list', element: <SmsLogPage /> },
 
         { path: 'orders/list', element: <OrdersPage /> },
         { path: 'orders/pending', element: <PendingOrdersPage /> },

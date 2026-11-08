@@ -51,7 +51,7 @@ public abstract class PostgresIntegrationTest {
     @BeforeEach
     void emptyAllTables() {
         this.jdbc.execute("TRUNCATE ar_summary, container, customer, customer_price, debt, expense, "
-                + "order_product, orders, payment, products, users RESTART IDENTITY");
+                + "order_product, orders, payment, products, sms_message, users RESTART IDENTITY");
     }
 
     /** The first two of the shop's products, at their list prices. */

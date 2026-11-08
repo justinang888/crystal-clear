@@ -1,6 +1,17 @@
 import { useMemo, type FormEvent } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Banknote, ChevronDown, Pencil, Plus, Receipt, SlidersHorizontal, Tags, Undo2 } from 'lucide-react'
+import {
+  Banknote,
+  ChevronDown,
+  MessageSquareOff,
+  MessageSquareText,
+  Pencil,
+  Plus,
+  Receipt,
+  SlidersHorizontal,
+  Tags,
+  Undo2,
+} from 'lucide-react'
 import { Link, useSearchParams } from 'react-router'
 
 import { Count, DateFilter, StatusBadge } from '@/components/bits'
@@ -91,6 +102,7 @@ export function CustomerPage() {
   const [params] = useSearchParams()
   const { data, error } = usePage<CustomerData>()
   const id = params.get('customerId')
+  const textOptOut = useSave('/sms/optOut')
 
   const orderColumns = useMemo<ColumnDef<Order>[]>(
     () => [
@@ -133,6 +145,7 @@ export function CustomerPage() {
           <span className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary">{c.type}</Badge>
             {data.dueDateText && <Badge variant="destructive">{data.dueDateText}</Badge>}
+            {c.smsOptOut && <Badge variant="outline"><MessageSquareOff /> No texts</Badge>}
           </span>
         }
         actions={
@@ -158,6 +171,14 @@ export function CustomerPage() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild><Link to={`/customers/edit?customerId=${id}`}><Pencil /> Edit customer</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild><Link to={`/customers/containerBalances?customerId=${id}`}><SlidersHorizontal /> Set container balance</Link></DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {/* Its own POST: the edit form posts a whole customer and must not reset this. */}
+                <DropdownMenuItem
+                  disabled={textOptOut.isPending}
+                  onSelect={() => textOptOut.mutate({ customerId: c.customerId, optOut: String(!c.smsOptOut) })}
+                >
+                  {c.smsOptOut ? <><MessageSquareText /> Allow texts</> : <><MessageSquareOff /> Don't send texts</>}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </>
@@ -456,7 +477,18 @@ export function InactiveCustomersPage() {
   if (!data) return <PageState error={error} />
   return (
     <>
-      <PageHeader title="Inactive customers" description="Customers who have not ordered in a while." actions={<PrintButton />} />
+      <PageHeader
+        title="Inactive customers"
+        description="Customers who have not ordered in a while."
+        actions={
+          <>
+            <Button variant="outline" asChild className="print:hidden">
+              <Link to="/sms/compose"><MessageSquareText /> Text overdue customers</Link>
+            </Button>
+            <PrintButton />
+          </>
+        }
+      />
       <DataTable columns={columns} data={data.customerList} emptyText="Every customer has ordered recently." />
     </>
   )
