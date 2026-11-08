@@ -98,7 +98,7 @@ export function SalesChart({ byDay, byWeek, byMonth }: { byDay: SalesPeriod[]; b
       <CardHeader className="px-5">
         <CardTitle>Sales</CardTitle>
         <CardDescription>Delivered orders, {RANGES[range].span}</CardDescription>
-        <p className="mt-1 text-2xl font-semibold tracking-tight">{peso(total)}</p>
+        <p className="mt-1 text-2xl font-semibold tracking-tight">₱{peso(total)}</p>
         <CardAction>
           <Tabs value={range} onValueChange={choose}>
             <TabsList aria-label="Show sales by">
