@@ -55,6 +55,13 @@ public class Customer {
     @Column(name="total_slim")
     private int totalSlim;
 
+    /**
+     * The customer asked not to be texted. Read-only here: the customer forms post a whole
+     * customer without it, so saving one must not reset it. SmsService changes it.
+     */
+    @Column(name="sms_opt_out", insertable = false, updatable = false)
+    private boolean smsOptOut;
+
     public boolean isNew() {
         return (this.customerId == 0);
     }

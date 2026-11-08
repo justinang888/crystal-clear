@@ -5,10 +5,12 @@ import java.time.LocalDateTime;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.spring.aurora.AuroraApplication;
+import com.spring.aurora.sms.SmsGateway;
 
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
 
@@ -36,6 +38,9 @@ public class DemoApplication {
 
         SpringApplication app = new SpringApplication(AuroraApplication.class);
         app.setAdditionalProfiles("prod");
+        // A fake phone for the texting screens: accepts every text, sends nothing.
+        app.addInitializers(context -> ((GenericApplicationContext) context)
+                .registerBean(SmsGateway.class, FakeSmsGateway::new));
         ConfigurableApplicationContext context = app.run(
                 "--server.port=8081",
                 "--spring.datasource.url=" + postgres.getJdbcUrl("postgres", "postgres"),
@@ -115,5 +120,41 @@ public class DemoApplication {
         }
         jdbc.update("INSERT INTO ar_summary (ar_amount, customer_id, updated_at) "
                 + "SELECT sum(amount), customer_id, localtimestamp FROM debt GROUP BY customer_id");
+
+        seedLapsedCustomers(jdbc, today, receipt);
+    }
+
+    /**
+     * Customers who stopped ordering, for the texting screens (Inactive Customers > Text overdue
+     * customers): one of each case the compose screen shows. Last deliveries are days ago.
+     */
+    private static void seedLapsedCustomers(JdbcTemplate jdbc, LocalDate today, int receipt) {
+        // type, name, contact, main number, interval, last delivery (days ago, -1 = never), opted out
+        Object[][] lapsed = {
+            {"Business", "Lapsed Laundry", "Iris Tan", "0917 000 0009", 7, 18, false},     // texted
+            {"Residential", "Joel Villanueva", "Joel Villanueva", "0917-000-0010", 14, 21, false},
+            {"Residential", "Kai Navarro", "Kai Navarro", "(02) 8000 0011", 7, 15, false}, // landline: skipped
+            {"Residential", "Lito Mendoza", "Lito Mendoza", "0917 000 0000", 7, 12, false}, // the fake phone fails it
+            {"Residential", "Mara Uy", "Mara Uy", "0917 000 0013", 10, 30, true},           // opted out: skipped
+            {"Residential", "Nina Ocampo", "Nina Ocampo", "0917 000 0014", 7, -1, false},   // never ordered: not listed
+        };
+        for (Object[] c : lapsed) {
+            long id = jdbc.queryForObject("INSERT INTO customer (type, name, address, contact_name, main_number, order_interval, "
+                    + "total_round, total_slim, sms_opt_out) VALUES (?, ?, 'Sample address', ?, ?, ?, 1, 0, ?) RETURNING customer_id",
+                    Long.class, c[0], c[1], c[2], c[3], c[4], c[6]);
+            int daysAgo = (int) c[5];
+            if (daysAgo < 0) {
+                continue;
+            }
+            for (int extra : new int[] {(int) c[4], 0}) {   // the delivery before the last one, then the last
+                LocalDateTime at = today.minusDays(daysAgo + extra).atTime(10, 0);
+                long orderId = jdbc.queryForObject("INSERT INTO orders (customer_id, delivery_receipt_num, status, amount_paid, "
+                        + "total_amount, round_refill_only_count, slim_refill_only_count, slim_free_count, round_free_count, "
+                        + "cont_round_returned, cont_slim_returned, created_at) "
+                        + "VALUES (?, ?, 'Delivered', 55, 55, 1, 0, 0, 0, 1, 0, ?) RETURNING order_id", Long.class,
+                        id, String.valueOf(receipt++), at);
+                jdbc.update("INSERT INTO order_product (order_id, product_id, quantity) VALUES (?, 1, 1)", orderId);
+            }
+        }
     }
 }
