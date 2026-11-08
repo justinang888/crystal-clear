@@ -2,6 +2,7 @@ import { CalendarDays, Circle, Coins, Hourglass, Plus, RectangleVertical, Truck,
 import { Link } from 'react-router'
 
 import { PageHeader, PageState, Stat } from '@/components/page'
+import { SalesChart } from '@/components/sales-chart'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { usePage } from '@/hooks/use-page'
@@ -66,7 +67,12 @@ export function DashboardPage() {
         </Link>
       </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2">
+      {/* One 16px rhythm between the tiles, the chart and the link cards, the same as the gaps inside each row. */}
+      <div className="mt-4">
+        <SalesChart byDay={data.salesByDay} byWeek={data.salesByWeek} byMonth={data.salesByMonth} />
+      </div>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
         <LinkCard title="Quick links" links={QUICK_LINKS} />
         <LinkCard title="Reports" links={REPORTS} />
       </div>

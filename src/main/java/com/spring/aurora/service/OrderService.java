@@ -16,6 +16,8 @@ public interface OrderService {
 
     List<Order> findAllByCustomerId(long customerId);
     List<Order> findAllOrdersToday(Date dateParam);
+    /** Delivered orders from {@code from} up to, but not including, {@code until}. */
+    List<Order> findDeliveredBetween(Timestamp from, Timestamp until);
     List<Order> findAllByDeliveryReceiptNumber(int drNumber);
     List<Order> findAll();
 

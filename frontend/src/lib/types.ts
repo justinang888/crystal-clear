@@ -108,6 +108,17 @@ export interface DashboardData extends PageData {
   runningSlim: number
   /** What all customers owe, the same total as the A/R summary. */
   arTotal: number
+  /** Delivered sales for the last 7 days, 8 weeks (Monday to Sunday) and 12 months, oldest first. */
+  salesByDay: SalesPeriod[]
+  salesByWeek: SalesPeriod[]
+  salesByMonth: SalesPeriod[]
+}
+
+/** One bar of the dashboard's sales chart: first and last day ("2026-11-02") and the total. */
+export interface SalesPeriod {
+  start: string
+  end: string
+  total: number
 }
 
 export interface CustomersData extends PageData {
