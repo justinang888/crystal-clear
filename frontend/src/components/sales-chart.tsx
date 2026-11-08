@@ -188,27 +188,31 @@ export function SalesChart({ byDay, byWeek, byMonth }: { byDay: SalesPeriod[]; b
           </div>
         </div>
 
-        {/* The same numbers for screen readers. */}
-        <table className="sr-only">
-          <caption>Sales by {range}, {RANGES[range].span}, in pesos</caption>
-          <thead>
-            <tr>
-              <th scope="col">Period</th>
-              <th scope="col">Sales</th>
-            </tr>
-          </thead>
-          <tbody>
-            {series.map((period, i) => (
-              <tr key={period.start}>
-                <th scope="row">
-                  {periodName(range, period)}
-                  {i === series.length - 1 && ' (so far)'}
-                </th>
-                <td>{peso(period.total)}</td>
+        {/* The same numbers for screen readers. The wrapper does the hiding: a table ignores the
+            1px size that sr-only relies on, so on the table itself it kept its full height and
+            pushed blank space onto the bottom of the page. */}
+        <div className="sr-only">
+          <table>
+            <caption>Sales by {range}, {RANGES[range].span}, in pesos</caption>
+            <thead>
+              <tr>
+                <th scope="col">Period</th>
+                <th scope="col">Sales</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {series.map((period, i) => (
+                <tr key={period.start}>
+                  <th scope="row">
+                    {periodName(range, period)}
+                    {i === series.length - 1 && ' (so far)'}
+                  </th>
+                  <td>{peso(period.total)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </CardContent>
     </Card>
   )
