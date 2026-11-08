@@ -59,7 +59,7 @@ export function DashboardPage() {
         <Link to="/debts/listAll" className="rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
           <Stat
             label="Total owed (A/R)"
-            value={peso(data.arTotal)}
+            value={`₱${peso(data.arTotal)}`}
             icon={<Coins />}
             tone={toNumber(data.arTotal) > 0 ? 'danger' : undefined}
             className="h-full transition-colors hover:border-primary/40"
