@@ -96,3 +96,22 @@ fail, to show what a failure looks like.
    sends (`AndroidSmsGateway.java`).
 
 Without `AURORA_SMS_URL` the screens still open, but Send stays off.
+
+## Logins: owner and bookkeepers
+
+Every login is either a **bookkeeper** or the **owner**. Bookkeepers (every login from before
+this change, stored as `ROLE_ADMIN` or `ROLE_USER`) can use every screen except **Bank
+Reconciliation**. The owner (`ROLE_OWNER`) can use everything, including the monthly bank
+reconciliation under Expenses. The server enforces this; the menu only hides what would be
+refused. The spec is
+[docs/specs/owner-role-bank-reconciliation.md](docs/specs/owner-role-bank-reconciliation.md).
+
+To add a login, run this from the folder with `aurora.war`. It asks for the username, the role
+(`owner` or `bookkeeper`) and the password, hidden as you type; it also asks for the database
+password if `AURORA_DB_PASSWORD` isn't set. Only the password's hash is stored.
+
+```bat
+java -cp aurora.war -Dloader.path=WEB-INF/classes,WEB-INF/lib -Dloader.main=com.spring.aurora.tools.AddUser org.springframework.boot.loader.launch.PropertiesLauncher
+```
+
+In the demo, `demo` / `demo` is a bookkeeper and `owner` / `owner` is the owner.

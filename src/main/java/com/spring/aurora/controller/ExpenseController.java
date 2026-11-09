@@ -3,6 +3,7 @@ package com.spring.aurora.controller;
 import com.spring.aurora.model.Expense;
 import com.spring.aurora.service.ExpenseService;
 import com.spring.aurora.util.ExpenseFormValidator;
+import com.spring.aurora.util.ExpenseTotals;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -72,6 +73,7 @@ public class ExpenseController {
         ModelAndView model = new ModelAndView("list-expenses");
         model.addObject("expenses", expenses);
         model.addObject("expensesTotal", expenseService.getTotalExpensesByDate(date));
+        model.addObject("totalsByType", ExpenseTotals.byType(expenses));
         model.addObject("date", new SimpleDateFormat("MMM dd YYYY").format(date));
         return model;
     }

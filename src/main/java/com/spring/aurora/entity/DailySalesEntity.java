@@ -22,6 +22,16 @@ public class DailySalesEntity {
 	private String dateAndTime;
 	private String returnedRound;
 	private String returnedSlim;
+	/** For an expense row: how it was paid (Cash, GCash, Bank Transfer). */
+	private String expensePaymentType;
+
+	public String getExpensePaymentType() {
+		return expensePaymentType;
+	}
+
+	public void setExpensePaymentType(String expensePaymentType) {
+		this.expensePaymentType = expensePaymentType;
+	}
 	
 	public String getDateAndTime() {
 		return this.dateAndTime;

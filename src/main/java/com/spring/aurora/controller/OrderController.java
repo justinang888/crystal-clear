@@ -33,6 +33,7 @@ import com.spring.aurora.entity.OrderProductEntity;
 import com.spring.aurora.model.Container;
 import com.spring.aurora.model.Customer;
 import com.spring.aurora.model.CustomerPrice;
+import com.spring.aurora.model.ExpensePaymentType;
 import com.spring.aurora.model.Debt;
 import com.spring.aurora.model.Expense;
 import com.spring.aurora.model.Order;
@@ -349,10 +350,16 @@ public class OrderController {
         List<Expense> expenseList = new ArrayList<>();
         expenseList = this.expenseService.findAllByDate(date);
 
+        Double totalCashExpenses = 0.00;
         for (Expense e : expenseList) {
             DailySalesEntity dse = new DailySalesEntity();
             dse.setRemarks(e.getDescription());
+            dse.setExpensePaymentType(e.getPaymentType() == null ? null : e.getPaymentType().getLabel());
             totalExpenses += e.getAmount();
+            // Only cash comes out of the drawer; GCash and bank transfers don't lower net cash.
+            if (e.getPaymentType() == null || e.getPaymentType() == ExpensePaymentType.CASH) {
+                totalCashExpenses += e.getAmount();
+            }
             dse.setExpenseAmount(Double.parseDouble(df2.format(e.getAmount())));
             dseList.add(dse);
         }
@@ -404,11 +411,13 @@ public class OrderController {
         model.addAttribute("totalRoundReturned", totalReturnedRound);
 
         model.addAttribute("totalExpenses", ReportUtil.applyCurrencyFormat("" + totalExpenses));
+        model.addAttribute("totalCashExpenses", ReportUtil.applyCurrencyFormat("" + totalCashExpenses));
+        model.addAttribute("totalOtherExpenses", ReportUtil.applyCurrencyFormat("" + (totalExpenses - totalCashExpenses)));
         model.addAttribute("totalCashPayments", ReportUtil.applyCurrencyFormat("" + totalCashPayments));
         model.addAttribute("totalCheckPayments", ReportUtil.applyCurrencyFormat("" + totalCheckPayments));
         model.addAttribute("totalDebt", ReportUtil.applyCurrencyFormat("" + totalDebt));
 
-        double netCash = totalCashPayments - totalExpenses;
+        double netCash = totalCashPayments - totalCashExpenses;
         model.addAttribute("netCash", ReportUtil.applyCurrencyFormat("" + netCash));
 
         if (mode.equalsIgnoreCase("preview")) {

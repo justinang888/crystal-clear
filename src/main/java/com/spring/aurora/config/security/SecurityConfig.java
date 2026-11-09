@@ -39,6 +39,8 @@ public class SecurityConfig {
                 .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR).permitAll()
                 // The React app itself and its files load before anyone logs in; its data does not.
                 .requestMatchers("/index.html", "/assets/**", "/favicon.svg", "/login", "/error").permitAll()
+                // Only the owner sees and fills in the bank reconciliation; every other login is a bookkeeper.
+                .requestMatchers("/expenses/reconciliation", "/expenses/reconciliation/**").hasRole(Roles.OWNER)
                 .anyRequest().authenticated())
             .csrf(csrf -> csrf.spa())
             // Issue the XSRF-TOKEN cookie on every response, so it is there before the first post (login).

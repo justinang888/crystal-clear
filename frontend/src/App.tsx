@@ -37,6 +37,7 @@ import {
   PaymentsPage,
 } from '@/pages/money'
 import { DailySalesPage, MonthlySummaryPage, OrderFormPage, OrdersPage, PendingOrdersPage } from '@/pages/orders'
+import { BankReconciliationPage } from '@/pages/reconciliation'
 import { SmsComposePage, SmsLogPage } from '@/pages/sms'
 
 /** Keyed by address so moving between two records of the same kind starts a fresh form. */
@@ -81,6 +82,7 @@ const router = createBrowserRouter(
         { path: 'debts/listAll', element: <ArSummaryPage /> },
         { path: 'expenses/list', element: <ExpensesPage /> },
         { path: 'expenses/new', element: <ExpenseFormPage /> },
+        { path: 'expenses/reconciliation', element: <BankReconciliationPage /> },
 
         { path: 'products/list', element: <ProductsPage /> },
         { path: 'products/new', element: <ProductFormPage mode="new" /> },

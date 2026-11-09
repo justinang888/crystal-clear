@@ -95,11 +95,25 @@ export interface Debt {
   orderId: number | null
 }
 
+export type ExpensePaymentType = 'CASH' | 'GCASH' | 'BANK_TRANSFER'
+
+export const EXPENSE_PAYMENT_TYPES: { value: ExpensePaymentType; label: string }[] = [
+  { value: 'CASH', label: 'Cash' },
+  { value: 'GCASH', label: 'GCash' },
+  { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
+]
+
+export function paymentTypeLabel(value: string | null | undefined) {
+  return EXPENSE_PAYMENT_TYPES.find((t) => t.value === value)?.label ?? 'Cash'
+}
+
 export interface Expense {
   expenseId: number
   amount: number | null
   description: string | null
   createdAt: string
+  /** How it was paid; only Cash comes out of the drawer. */
+  paymentType: ExpensePaymentType
 }
 
 export interface ContainerActivity {
@@ -198,6 +212,8 @@ export interface DailySale {
   paidCash: number | null
   paidCheck: number | null
   expenseAmount: number | null
+  /** For an expense row: "Cash", "GCash" or "Bank Transfer". */
+  expensePaymentType: string | null
   returnedRound: string | null
   returnedSlim: string | null
 }
@@ -211,6 +227,10 @@ export interface DailySalesData extends PageData {
   totalRoundReturned: number
   totalSlimReturned: number
   totalExpenses: string
+  /** The expenses paid in cash: only these lower net cash. */
+  totalCashExpenses: string
+  /** GCash and bank transfer expenses. */
+  totalOtherExpenses: string
   totalCashPayments: string
   totalCheckPayments: string
   totalDebt: string

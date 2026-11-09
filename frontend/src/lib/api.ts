@@ -113,7 +113,13 @@ export async function logout(): Promise<void> {
   })
 }
 
-export async function currentUser(): Promise<string> {
-  const data = await getPage<{ username: string }>('/session')
-  return data.username
+/** Who is logged in, and whether to offer the owner-only bank reconciliation (the server checks it too). */
+export interface Session {
+  username: string
+  canReconcile: boolean
+}
+
+export async function currentSession(): Promise<Session> {
+  const data = await getPage<Partial<Session>>('/session')
+  return { username: data.username ?? '', canReconcile: data.canReconcile === true }
 }
