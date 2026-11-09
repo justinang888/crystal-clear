@@ -35,9 +35,19 @@ containers. Runs on the shop's one desktop PC. `PRODUCT.md` says who uses it and
 - A bug fix starts with a test that fails without it. Tests that pin known-wrong behavior say **KNOWN BUG**.
 - Money and dates are shown in pesos and Asia/Manila time (`frontend/src/lib/format.ts`).
 - Commit messages: `type(scope): description`, for example `fix(db): keep month entries on the 1st`, with a body
-  that says why. Types: `feat`, `fix`, `chore`, `docs`, `test`, `refactor`. The scope is the area changed, one
-  short lowercase word: `orders`, `payments`, `expenses`, `customers`, `reports`, `dashboard`, `sms`, `auth`,
-  `db`, `ui`, `ci`, `deps`, `docs`. Leave it out only for repository-wide changes (`chore: ...`).
+  that says why. Types: `feat`, `fix`, `chore`, `docs`, `test`, `refactor`. The scope is one of:
+  - `auth`: login, roles and permissions (Spring Security, the owner/bookkeeper check)
+  - `api`: the controllers and the model data the React screens read
+  - `db`: the schema, Flyway migrations and queries
+  - `middleware`: request filters and views (`SpaPageFilter`, CSRF, `ModelJsonView`)
+  - `worker`: command-line tools and background work (`AddUser`, `HashPassword`, sending texts)
+  - `ui`: the React app in `frontend/`
+  - `ci` or `cd`: the GitHub Actions checks, or building and deploying the WAR (`deploy/`, start scripts)
+  - `deps`: dependency upgrades
+  - `docker`: container files, if any are added
+  - `config`: application properties and environment settings
+
+  Pick the scope the change is mainly about; leave it out only for repository-wide changes (`chore: ...`).
 - Decisions that are expensive to reverse get a record in `docs/decisions/`.
 
 ## Boundaries
