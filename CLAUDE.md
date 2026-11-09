@@ -34,7 +34,10 @@ containers. Runs on the shop's one desktop PC. `PRODUCT.md` says who uses it and
   Anything that changes data is a POST; never accept a GET for it (Spring Security skips the CSRF check on GET).
 - A bug fix starts with a test that fails without it. Tests that pin known-wrong behavior say **KNOWN BUG**.
 - Money and dates are shown in pesos and Asia/Manila time (`frontend/src/lib/format.ts`).
-- Commit messages: `feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`, with a body that says why.
+- Commit messages: `type(scope): description`, for example `fix(db): keep month entries on the 1st`, with a body
+  that says why. Types: `feat`, `fix`, `chore`, `docs`, `test`, `refactor`. The scope is the area changed, one
+  short lowercase word: `orders`, `payments`, `expenses`, `customers`, `reports`, `dashboard`, `sms`, `auth`,
+  `db`, `ui`, `ci`, `deps`, `docs`. Leave it out only for repository-wide changes (`chore: ...`).
 - Decisions that are expensive to reverse get a record in `docs/decisions/`.
 
 ## Boundaries
