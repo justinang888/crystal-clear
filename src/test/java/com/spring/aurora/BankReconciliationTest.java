@@ -159,6 +159,87 @@ class BankReconciliationTest extends PostgresIntegrationTest {
         assertThat(this.jdbc.queryForObject("SELECT count(*) FROM bank_reconciliation", Integer.class)).isZero();
     }
 
+    // --- By day ---
+
+    private Map<String, Object> dayPage(String day) throws Exception {
+        return this.mvc.perform(ownerGet("/expenses/reconciliation").param("day", day)).andReturn().getModelAndView().getModel();
+    }
+
+    @Test
+    void aDayShowsOnlyThatDaysExpenses() throws Exception {
+        expense("2026-03-15 00:00:00", "100.00", "CASH");
+        expense("2026-03-15 17:30:00", "300.00", "GCASH");          // late in the day
+        expense("2026-03-15 09:00:00", "2500.00", "BANK_TRANSFER");
+        expense("2026-03-14 23:59:59", "999.00", "BANK_TRANSFER"); // the day before
+        expense("2026-03-16 00:00:00", "999.00", "CASH");          // the day after
+
+        Map<String, Object> model = dayPage("2026-03-15");
+
+        assertThat(model.get("period")).isEqualTo("DAY");
+        assertThat(model.get("periodStart")).isEqualTo(LocalDate.of(2026, 3, 15));
+        assertThat(model.get("month")).as("for the month picker").isEqualTo(LocalDate.of(2026, 3, 1));
+        @SuppressWarnings("unchecked")
+        Map<String, BigDecimal> byType = (Map<String, BigDecimal>) model.get("totalsByType");
+        assertThat(byType.get("CASH")).isEqualByComparingTo("100.00");
+        assertThat(byType.get("GCASH")).isEqualByComparingTo("300.00");
+        assertThat(byType.get("BANK_TRANSFER")).isEqualByComparingTo("2500.00");
+        assertThat((BigDecimal) model.get("total")).isEqualByComparingTo("2900.00");
+        assertThat(model.get("entry")).isNull();
+    }
+
+    @Test
+    void aDayHasItsOwnEntrySeparateFromItsMonth() throws Exception {
+        expense("2026-03-15 00:00:00", "2500.00", "BANK_TRANSFER");
+        expense("2026-03-20 00:00:00", "1000.00", "BANK_TRANSFER");
+        this.mvc.perform(ownerPost("/expenses/reconciliation/save").param("month", "2026-03").param("statementAmount", "3600.00"));
+
+        this.mvc.perform(ownerPost("/expenses/reconciliation/save").param("day", "2026-03-15")
+                .param("statementAmount", "2520.00").param("note", "20.00 transfer fee"))
+                .andExpect(redirectedUrl("/expenses/reconciliation?day=2026-03-15"))
+                .andExpect(flash().attribute("msg", "Reconciliation for Sunday, March 15, 2026 saved."));
+
+        Map<String, Object> day = dayPage("2026-03-15");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> dayEntry = (Map<String, Object>) day.get("entry");
+        assertThat((BigDecimal) dayEntry.get("statementAmount")).isEqualByComparingTo("2520.00");
+        assertThat(dayEntry.get("note")).isEqualTo("20.00 transfer fee");
+        assertThat((BigDecimal) day.get("difference")).isEqualByComparingTo("20.00");   // that day's bank transfers only
+
+        Map<String, Object> month = page("03-2026");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> monthEntry = (Map<String, Object>) month.get("entry");
+        assertThat((BigDecimal) monthEntry.get("statementAmount")).as("the month's entry is untouched").isEqualByComparingTo("3600.00");
+        assertThat((BigDecimal) month.get("difference")).isEqualByComparingTo("100.00");
+        assertThat(this.jdbc.queryForList("SELECT period FROM bank_reconciliation ORDER BY period", String.class))
+                .containsExactly("DAY", "MONTH");
+    }
+
+    @Test
+    void aMalformedDayIsRefused() throws Exception {
+        this.mvc.perform(ownerPost("/expenses/reconciliation/save").param("day", "15-03-2026").param("statementAmount", "1"))
+                .andExpect(flash().attributeExists("failmsg"));
+        assertThat(this.jdbc.queryForObject("SELECT count(*) FROM bank_reconciliation", Integer.class)).isZero();
+    }
+
+    @Test
+    void bookkeepersCantOpenOrSaveADayEither() throws Exception {
+        this.mvc.perform(MockMvcRequestBuilders.get("/expenses/reconciliation").param("day", "2026-03-15")
+                .with(user("clerk").roles("ADMIN")).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden());
+        this.mvc.perform(MockMvcRequestBuilders.post("/expenses/reconciliation/save").with(user("clerk").roles("ADMIN")).with(csrf())
+                .param("day", "2026-03-15").param("statementAmount", "1.00"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void theDatabaseKeepsAMonthEntryOnTheFirst() {
+        // A month entry must start on the 1st; a day entry may be any day.
+        this.jdbc.update("INSERT INTO bank_reconciliation (period, period_start, statement_amount, updated_by) VALUES ('DAY', '2026-03-15', 1, 'x')");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> this.jdbc.update(
+                "INSERT INTO bank_reconciliation (period, period_start, statement_amount, updated_by) VALUES ('MONTH', '2026-03-15', 1, 'x')"))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
+
     @Test
     void theDefaultMonthIsThisMonth() throws Exception {
         Map<String, Object> model = this.mvc.perform(ownerGet("/expenses/reconciliation")).andReturn().getModelAndView().getModel();

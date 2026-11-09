@@ -6,14 +6,21 @@ import { Field, PageHeader, PageState, Stat } from '@/components/page'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { usePage, useSave } from '@/hooks/use-page'
 import type { PageData } from '@/lib/api'
-import { displayDateTime, peso, toNumber } from '@/lib/format'
+import { displayDateTime, isoDate, peso, toNumber } from '@/lib/format'
 import { EXPENSE_PAYMENT_TYPES, type ExpensePaymentType } from '@/lib/types'
 
 interface ReconciliationData extends PageData {
-  /** The first of the month, "2026-03-01". */
+  /** Reconciling one day or a whole month. */
+  period: 'DAY' | 'MONTH'
+  /** The day, or the first of the month: "2026-03-15", "2026-03-01". */
+  periodStart: string
+  /** "Sunday, March 15, 2026" or "March 2026". */
+  periodLabel: string
+  /** The first of the month the period falls in, "2026-03-01". */
   month: string
   monthLabel: string
   totalsByType: Record<ExpensePaymentType, number>
@@ -24,46 +31,75 @@ interface ReconciliationData extends PageData {
   difference: number | null
 }
 
-/** The owner's monthly bank reconciliation. The server refuses everyone else. */
+/** The owner's bank reconciliation, by day or by month. The server refuses everyone else. */
 export function BankReconciliationPage() {
   const { data, error } = usePage<ReconciliationData>()
   if (!data) return <PageState error={error} />
-  // A fresh form for each month and after each save.
-  return <Reconciliation key={`${data.month}:${data.entry?.updatedAt ?? ''}`} data={data} />
+  // A fresh form for each day or month and after each save.
+  return <Reconciliation key={`${data.period}:${data.periodStart}:${data.entry?.updatedAt ?? ''}`} data={data} />
 }
+
+const monthAddress = (yyyyMm: string) => `/expenses/reconciliation?d=${yyyyMm.slice(5, 7)}-${yyyyMm.slice(0, 4)}`
+const dayAddress = (yyyyMmDd: string) => `/expenses/reconciliation?day=${yyyyMmDd}`
 
 function Reconciliation({ data }: { data: ReconciliationData }) {
   const navigate = useNavigate()
   const save = useSave('/expenses/reconciliation/save')
+  const byDay = data.period === 'DAY'
   const monthValue = data.month.slice(0, 7) // "2026-03"
+  const dayValue = data.periodStart // "2026-03-15"
   const [amount, setAmount] = useState(data.entry ? String(data.entry.statementAmount) : '')
   const [note, setNote] = useState(data.entry?.note ?? '')
   const bankTransfers = toNumber(data.totalsByType.BANK_TRANSFER)
   const difference = data.difference === null ? null : toNumber(data.difference)
+  // "in March 2026" / "on Sunday, March 15, 2026"
+  const when = `${byDay ? 'on' : 'in'} ${data.periodLabel}`
 
-  function pickMonth(value: string) {
-    if (/^\d{4}-\d{2}$/.test(value)) navigate(`/expenses/reconciliation?d=${value.slice(5, 7)}-${value.slice(0, 4)}`)
+  // Switching to Day opens the 1st of the month shown, or today when that's this month.
+  function switchTo(view: string) {
+    if (view === 'DAY' && !byDay) {
+      const today = isoDate()
+      navigate(dayAddress(today.startsWith(monthValue) ? today : `${monthValue}-01`))
+    } else if (view === 'MONTH' && byDay) {
+      navigate(monthAddress(monthValue))
+    }
   }
 
   function submit(e: FormEvent) {
     e.preventDefault()
-    save.mutate({ month: monthValue, statementAmount: amount, note })
+    save.mutate(byDay ? { day: dayValue, statementAmount: amount, note } : { month: monthValue, statementAmount: amount, note })
   }
 
   return (
     <>
       <PageHeader
         title="Bank reconciliation"
-        description={`${data.monthLabel}: the bank statement against the expenses recorded in Aurora.`}
+        description={`${data.periodLabel}: the bank statement against the expenses recorded in Aurora.`}
         actions={
           <>
-            <Input
-              type="month"
-              value={monthValue}
-              onChange={(e) => pickMonth(e.target.value)}
-              className="w-auto"
-              aria-label="Month"
-            />
+            <Tabs value={data.period} onValueChange={switchTo}>
+              <TabsList aria-label="Reconcile by">
+                <TabsTrigger value="DAY">Day</TabsTrigger>
+                <TabsTrigger value="MONTH">Month</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            {byDay ? (
+              <Input
+                type="date"
+                value={dayValue}
+                onChange={(e) => /^\d{4}-\d{2}-\d{2}$/.test(e.target.value) && navigate(dayAddress(e.target.value))}
+                className="w-auto"
+                aria-label="Day"
+              />
+            ) : (
+              <Input
+                type="month"
+                value={monthValue}
+                onChange={(e) => /^\d{4}-\d{2}$/.test(e.target.value) && navigate(monthAddress(e.target.value))}
+                className="w-auto"
+                aria-label="Month"
+              />
+            )}
             <Button variant="outline" asChild>
               <Link to="/expenses/list?d=today"><Receipt /> Expenses</Link>
             </Button>
@@ -72,7 +108,7 @@ function Reconciliation({ data }: { data: ReconciliationData }) {
       />
 
       <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label={`Expenses in ${data.monthLabel}`} value={`₱${peso(data.total)}`} />
+        <Stat label={byDay ? 'Expenses that day' : `Expenses in ${data.monthLabel}`} value={`₱${peso(data.total)}`} />
         {EXPENSE_PAYMENT_TYPES.map((t) => (
           <Stat key={t.value} label={t.label} value={`₱${peso(data.totalsByType[t.value] ?? 0)}`} />
         ))}
@@ -83,7 +119,7 @@ function Reconciliation({ data }: { data: ReconciliationData }) {
           <CardHeader className="px-5">
             <CardTitle>From the bank statement</CardTitle>
             <CardDescription>
-              Enter the bank transfers out of the account in {data.monthLabel}, as the statement shows them.
+              Enter the bank transfers out of the account {when}, as the statement shows them.
             </CardDescription>
           </CardHeader>
           <CardContent className="px-5">
