@@ -89,7 +89,7 @@ const NAV: { label?: string; items: NavItem[] }[] = [
   {
     label: 'Containers',
     items: [
-      { label: 'Balances', to: '/container/listAll', icon: Boxes },
+      { label: 'Borrowed Balances', to: '/container/listAll', icon: Boxes },
       { label: 'History', to: '/container/history?d=today', icon: History },
     ],
   },

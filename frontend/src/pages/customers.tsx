@@ -170,7 +170,7 @@ export function CustomerPage() {
                 <DropdownMenuItem asChild><Link to={`/prices/list/${id}`}><Tags /> Products &amp; prices</Link></DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild><Link to={`/customers/edit?customerId=${id}`}><Pencil /> Edit customer</Link></DropdownMenuItem>
-                <DropdownMenuItem asChild><Link to={`/customers/containerBalances?customerId=${id}`}><SlidersHorizontal /> Set container balance</Link></DropdownMenuItem>
+                <DropdownMenuItem asChild><Link to={`/customers/containerBalances?customerId=${id}`}><SlidersHorizontal /> Set borrowed container balance</Link></DropdownMenuItem>
                 <DropdownMenuSeparator />
                 {/* Its own POST: the edit form posts a whole customer and must not reset this. */}
                 <DropdownMenuItem
@@ -360,7 +360,7 @@ export function FormButtons({ busy, back, label = 'Save' }: { busy: boolean; bac
   )
 }
 
-// ---------- Set container balance ----------
+// ---------- Set borrowed container balance ----------
 
 export function ContainerBalanceFormPage() {
   const { data, error } = usePage<CustomerFormData>()
@@ -383,7 +383,7 @@ export function ContainerBalanceFormPage() {
 
   return (
     <div className="max-w-xl">
-      <PageHeader title="Set container balance" description={`${c.name}: the containers this customer has right now.`} />
+      <PageHeader title="Set borrowed container balance" description={`${c.name}: the containers this customer has borrowed right now.`} />
       <Card>
         <CardContent>
           <form onSubmit={submit} className="grid gap-5 sm:grid-cols-2">

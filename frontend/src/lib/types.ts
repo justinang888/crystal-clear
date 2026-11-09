@@ -203,6 +203,9 @@ export interface OrdersData extends PageData {
   orders: OrderRow[]
   pendingCount: number
   datePicked?: string
+  /** The days shown, both included (the Orders screen): "2026-03-01". */
+  from?: string
+  to?: string
 }
 
 export interface OrderFormData extends PageData {

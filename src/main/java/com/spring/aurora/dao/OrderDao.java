@@ -16,6 +16,10 @@ public interface OrderDao extends CrudRepository<Order, Long> {
     @Query("select o from Order o where cast(o.createdAt as date) = :timestamp")
     List<Order> findAllOrdersToday(Date timestamp);
 
+    /** Orders on any day from {@code from} to {@code to}, both included, whatever their time of day. */
+    @Query("select o from Order o where cast(o.createdAt as date) between :from and :to")
+    List<Order> findAllOrdersBetween(java.sql.Date from, java.sql.Date to);
+
     /** Delivered orders from {@code from} up to, but not including, {@code until}. */
     @Query("select o from Order o where lower(o.status) = 'delivered' and o.createdAt >= :from and o.createdAt < :until")
     List<Order> findDeliveredBetween(Timestamp from, Timestamp until);

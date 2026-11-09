@@ -226,7 +226,7 @@ export function ContainerBalancesPage() {
   if (!data) return <PageState error={error} />
   return (
     <>
-      <PageHeader title="Container balances" description="Containers each customer has borrowed right now." actions={<PrintButton />} />
+      <PageHeader title="Borrowed container balances" description="Containers each customer has borrowed right now." actions={<PrintButton />} />
       <div className="mb-6 grid max-w-xl gap-4 sm:grid-cols-2">
         <Stat label="Round out" value={data.runningRound} tone="round" />
         <Stat label="Slim out" value={data.runningSlim} tone="slim" />

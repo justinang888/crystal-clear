@@ -9,7 +9,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -591,35 +593,55 @@ public class OrderController {
     }
 
     @RequestMapping(value = "/list", method = RequestMethod.GET)
-    public String listOrders(@RequestParam(required = false) String d, Model model) {
+    public String listOrders(@RequestParam(required = false) String d,
+            @RequestParam(required = false) String from, @RequestParam(required = false) String to, Model model) {
         logger.info("List all orders.");
 
+        // One day (?d=yyyy-MM-dd, today by default) or a range of days (?from=&to=, both included).
+        LocalDate first;
+        LocalDate last;
+        if (from != null && !from.isEmpty() && to != null && !to.isEmpty()) {
+            first = LocalDate.parse(from);
+            last = LocalDate.parse(to);
+            if (last.isBefore(first)) {
+                LocalDate swap = first;
+                first = last;
+                last = swap;
+            }
+        } else {
+            first = d == null || d.isEmpty() ? LocalDate.now() : LocalDate.parse(d);
+            last = first;
+        }
+        List<Order> orderList = this.orderService.findAllOrdersBetween(Date.valueOf(first), Date.valueOf(last));
+
+        // One query for the customers' names, not one per order: a range can hold many orders.
+        Map<Long, String> names = new HashMap<>();
+        for (Customer customer : this.customerService.findAll()) {
+            names.put(customer.getCustomerId(), customer.getName());
+        }
+
         int pendingCount = 0;
-
-        List<Order> orderList = new ArrayList<>();
         List<OrderCustomerEntity> orderCustomerEntityList = new ArrayList<>();
-
-        Date date = d == null || d.isEmpty() ? Date.valueOf(LocalDate.now()) : Date.valueOf(LocalDate.parse(d));
-        orderList = this.orderService.findAllOrdersToday(date);
-
         for (Order order : orderList) {
-
             if (order.getStatus().equalsIgnoreCase("pending")) {
                 pendingCount++;
             }
-
             OrderCustomerEntity oce = new OrderCustomerEntity();
             oce.setOrder(order);
-            Customer customer = this.customerService.view(order.getCustomerId());
-            oce.setCustomerName(customer.getName());
+            oce.setCustomerName(names.get(order.getCustomerId()));
             String formattedDate = new SimpleDateFormat("MM-dd-yyyy hh:mm:ss a").format(order.getCreatedAt());
             oce.setFormattedDate(formattedDate);
             orderCustomerEntityList.add(oce);
         }
         model.addAttribute("orders", orderCustomerEntityList);
         model.addAttribute("pendingCount", pendingCount);
+        model.addAttribute("from", first.toString());
+        model.addAttribute("to", last.toString());
 
-        String datePicked = new SimpleDateFormat("MMM dd YYYY").format(date);
+        SimpleDateFormat label = new SimpleDateFormat("MMM dd yyyy");
+        String datePicked = first.equals(last)
+                ? label.format(Date.valueOf(first))
+                : label.format(Date.valueOf(first)) + " – " + label.format(Date.valueOf(last));
         model.addAttribute("datePicked", datePicked);
 
         return "list-orders";
