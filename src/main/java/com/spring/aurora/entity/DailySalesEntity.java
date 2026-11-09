@@ -24,6 +24,25 @@ public class DailySalesEntity {
 	private String returnedSlim;
 	/** For an expense row: how it was paid (Cash, GCash, Bank Transfer). */
 	private String expensePaymentType;
+	/** For a payment row paid by GCash or by bank transfer: the amount, in that method's column. */
+	private Double paidGcash;
+	private Double paidBankTransfer;
+
+	public Double getPaidGcash() {
+		return paidGcash;
+	}
+
+	public void setPaidGcash(Double paidGcash) {
+		this.paidGcash = paidGcash;
+	}
+
+	public Double getPaidBankTransfer() {
+		return paidBankTransfer;
+	}
+
+	public void setPaidBankTransfer(Double paidBankTransfer) {
+		this.paidBankTransfer = paidBankTransfer;
+	}
 
 	public String getExpensePaymentType() {
 		return expensePaymentType;

@@ -34,6 +34,7 @@ import com.spring.aurora.model.Container;
 import com.spring.aurora.model.Customer;
 import com.spring.aurora.model.CustomerPrice;
 import com.spring.aurora.model.ExpensePaymentType;
+import com.spring.aurora.model.PaymentTypes;
 import com.spring.aurora.model.Debt;
 import com.spring.aurora.model.Expense;
 import com.spring.aurora.model.Order;
@@ -350,15 +351,21 @@ public class OrderController {
         List<Expense> expenseList = new ArrayList<>();
         expenseList = this.expenseService.findAllByDate(date);
 
+        // Each payment method has its own money in, expenses and net: cash is the drawer, GCash the
+        // wallet, bank transfer the account. Only cash expenses lower net cash.
         Double totalCashExpenses = 0.00;
+        Double totalGcashExpenses = 0.00;
+        Double totalBankTransferExpenses = 0.00;
         for (Expense e : expenseList) {
             DailySalesEntity dse = new DailySalesEntity();
             dse.setRemarks(e.getDescription());
             dse.setExpensePaymentType(e.getPaymentType() == null ? null : e.getPaymentType().getLabel());
             totalExpenses += e.getAmount();
-            // Only cash comes out of the drawer; GCash and bank transfers don't lower net cash.
-            if (e.getPaymentType() == null || e.getPaymentType() == ExpensePaymentType.CASH) {
-                totalCashExpenses += e.getAmount();
+            ExpensePaymentType type = e.getPaymentType() == null ? ExpensePaymentType.CASH : e.getPaymentType();
+            switch (type) {
+                case GCASH -> totalGcashExpenses += e.getAmount();
+                case BANK_TRANSFER -> totalBankTransferExpenses += e.getAmount();
+                default -> totalCashExpenses += e.getAmount();
             }
             dse.setExpenseAmount(Double.parseDouble(df2.format(e.getAmount())));
             dseList.add(dse);
@@ -368,19 +375,32 @@ public class OrderController {
         List<Payment> paymentList = new ArrayList<>();
         paymentList = this.paymentService.findAllByDate(date);
 
+        Double totalGcashPayments = 0.00;
+        Double totalBankTransferPayments = 0.00;
         for (Payment p : paymentList) {
             DailySalesEntity dse = new DailySalesEntity();
             dse.setCustomerName(this.customerService.view(p.getCustomerId()).getName());
             dse.setRemarks(p.getRemarks());
 
-            if (p.getPaymentType().equalsIgnoreCase("CASH")) {
-                dse.setPaidCash(Double.parseDouble(df2.format(p.getAmount())));
-                totalCashPayments += p.getAmount();
-            } else {
-                //        		dse.setPaidCheck(Double.parseDouble(df2.format(p.getAmount() + p.getWithholdingTax())));
-                //        		totalCheckPayments += p.getAmount() + p.getWithholdingTax();
-                dse.setPaidCheck(Double.parseDouble(df2.format(p.getAmount())));
-                totalCheckPayments += p.getAmount();
+            Double amount = Double.parseDouble(df2.format(p.getAmount()));
+            switch (p.getPaymentType().toUpperCase()) {
+                case PaymentTypes.CASH -> {
+                    dse.setPaidCash(amount);
+                    totalCashPayments += p.getAmount();
+                }
+                case PaymentTypes.GCASH -> {
+                    dse.setPaidGcash(amount);
+                    totalGcashPayments += p.getAmount();
+                }
+                case PaymentTypes.BANK_TRANSFER -> {
+                    dse.setPaidBankTransfer(amount);
+                    totalBankTransferPayments += p.getAmount();
+                }
+                // Checks, and anything older that wasn't cash, as the report always counted them.
+                default -> {
+                    dse.setPaidCheck(amount);
+                    totalCheckPayments += p.getAmount();
+                }
             }
             dseList.add(dse);
         }
@@ -413,12 +433,18 @@ public class OrderController {
         model.addAttribute("totalExpenses", ReportUtil.applyCurrencyFormat("" + totalExpenses));
         model.addAttribute("totalCashExpenses", ReportUtil.applyCurrencyFormat("" + totalCashExpenses));
         model.addAttribute("totalOtherExpenses", ReportUtil.applyCurrencyFormat("" + (totalExpenses - totalCashExpenses)));
+        model.addAttribute("totalGcashExpenses", ReportUtil.applyCurrencyFormat("" + totalGcashExpenses));
+        model.addAttribute("totalBankTransferExpenses", ReportUtil.applyCurrencyFormat("" + totalBankTransferExpenses));
         model.addAttribute("totalCashPayments", ReportUtil.applyCurrencyFormat("" + totalCashPayments));
         model.addAttribute("totalCheckPayments", ReportUtil.applyCurrencyFormat("" + totalCheckPayments));
+        model.addAttribute("totalGcashPayments", ReportUtil.applyCurrencyFormat("" + totalGcashPayments));
+        model.addAttribute("totalBankTransferPayments", ReportUtil.applyCurrencyFormat("" + totalBankTransferPayments));
         model.addAttribute("totalDebt", ReportUtil.applyCurrencyFormat("" + totalDebt));
 
         double netCash = totalCashPayments - totalCashExpenses;
         model.addAttribute("netCash", ReportUtil.applyCurrencyFormat("" + netCash));
+        model.addAttribute("netGcash", ReportUtil.applyCurrencyFormat("" + (totalGcashPayments - totalGcashExpenses)));
+        model.addAttribute("netBankTransfer", ReportUtil.applyCurrencyFormat("" + (totalBankTransferPayments - totalBankTransferExpenses)));
 
         if (mode.equalsIgnoreCase("preview")) {
             Collections.sort(dseList,

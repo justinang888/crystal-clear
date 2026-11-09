@@ -1,6 +1,7 @@
 package com.spring.aurora.util;
 
 import com.spring.aurora.model.Payment;
+import com.spring.aurora.model.PaymentTypes;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.Errors;
 import org.springframework.validation.ValidationUtils;
@@ -22,6 +23,10 @@ public class PaymentFormValidator implements Validator {
         Payment payment = (Payment) target;
         if (payment.getAmount() == null || payment.getAmount() == 0) {
             errors.rejectValue("amount", "Valid.paymentForm.amount");
+        }
+        String type = payment.getPaymentType();
+        if (type != null && !type.isBlank() && !PaymentTypes.ALL.contains(type.toUpperCase())) {
+            errors.rejectValue("paymentType", "Valid.paymentForm.paymentType", "Pick Cash, Check, GCash or Bank Transfer.");
         }
     }
 }

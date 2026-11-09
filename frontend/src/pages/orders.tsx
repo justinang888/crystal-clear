@@ -20,10 +20,11 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { TableCell, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
 import { fieldErrors, usePage, useSave } from '@/hooks/use-page'
 import { displayDate, peso, timestampParam, toNumber } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import type { DailySale, DailySalesData, MonthlyData, OrderFormData, OrderRow, OrdersData } from '@/lib/types'
 import { containerColumns } from './customers'
 
@@ -338,6 +339,8 @@ export function DailySalesPage() {
         { accessorKey: 'balanceAmount', header: 'A/R', cell: ({ getValue }) => peso(getValue()), meta: { numeric: true } },
         { accessorKey: 'paidCash', header: 'Cash', cell: ({ getValue }) => peso(getValue()), meta: { numeric: true } },
         { accessorKey: 'paidCheck', header: 'Check', cell: ({ getValue }) => peso(getValue()), meta: { numeric: true } },
+        { accessorKey: 'paidGcash', header: 'GCash', cell: ({ getValue }) => peso(getValue()), meta: { numeric: true } },
+        { accessorKey: 'paidBankTransfer', header: 'Bank', cell: ({ getValue }) => peso(getValue()), meta: { numeric: true } },
         { accessorKey: 'expenseAmount', header: 'Expense', cell: ({ getValue }) => peso(getValue()), meta: { numeric: true } },
       ]
     },
@@ -347,18 +350,82 @@ export function DailySalesPage() {
   return (
     <>
       <PageHeader title="Daily sales" description={data.datePicked} actions={<><DateFilter /><PrintButton /></>} />
+      {/* The day's result for each place money is kept: the drawer, the GCash wallet, the bank. */}
+      <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat label="Net cash" value={<Net value={data.netCash} />} />
+        <Stat label="Net GCash" value={<Net value={data.netGcash} />} />
+        <Stat label="Net bank transfer" value={<Net value={data.netBankTransfer} />} />
+        <Stat label="A/R" value={`₱${peso(data.totalDebt)}`} tone={toNumber(data.totalDebt) > 0 ? 'danger' : undefined} />
+      </div>
+      <MoneyByMethod data={data} />
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Net cash" value={peso(data.netCash)} />
-        <Stat label="Cash payments" value={peso(data.totalCashPayments)} />
-        <Stat label="Check payments" value={peso(data.totalCheckPayments)} />
-        <Stat label="A/R" value={peso(data.totalDebt)} tone={toNumber(data.totalDebt) > 0 ? 'danger' : undefined} />
-        <Stat label="Cash expenses" value={peso(data.totalCashExpenses ?? data.totalExpenses)} />
-        <Stat label="GCash and bank expenses" value={peso(data.totalOtherExpenses ?? 0)} />
         <Stat label="Round delivered / returned" value={`${data.totalRoundDelivered} / ${data.totalRoundReturned}`} tone="round" />
         <Stat label="Slim delivered / returned" value={`${data.totalSlimDelivered} / ${data.totalSlimReturned}`} tone="slim" />
       </div>
       <DataTable columns={columns} data={data.dailySales} initialSort={[{ id: 'dr', desc: true }]} emptyText="No sales, payments or expenses on this day." />
     </>
+  )
+}
+
+/** A net amount: "₱605.00", or "−₱330.00" in red when more went out than came in. */
+function Net({ value, strong = true }: { value: unknown; strong?: boolean }) {
+  const n = toNumber(value)
+  return (
+    <span className={cn('tabular', strong && 'font-semibold', n < 0 && 'text-destructive')}>
+      {n < 0 ? '−' : ''}₱{peso(Math.abs(n))}
+    </span>
+  )
+}
+
+/** Money in, expenses and net for each payment method, with the day's totals. */
+function MoneyByMethod({ data }: { data: DailySalesData }) {
+  const rows = [
+    { method: 'Cash', note: 'Payments and orders paid on delivery', moneyIn: data.totalCashPayments, out: data.totalCashExpenses, net: data.netCash },
+    { method: 'GCash', note: null, moneyIn: data.totalGcashPayments, out: data.totalGcashExpenses, net: data.netGcash },
+    { method: 'Bank Transfer', note: null, moneyIn: data.totalBankTransferPayments, out: data.totalBankTransferExpenses, net: data.netBankTransfer },
+    { method: 'Check', note: 'Deposited later', moneyIn: data.totalCheckPayments, out: null, net: data.totalCheckPayments },
+  ]
+  const totalIn = rows.reduce((sum, r) => sum + toNumber(r.moneyIn), 0)
+  const totalOut = toNumber(data.totalExpenses)
+  return (
+    <Card className="mb-4 gap-3 py-5">
+      <CardHeader className="px-5">
+        <CardTitle>Money by payment method</CardTitle>
+      </CardHeader>
+      <CardContent className="px-5">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Method</TableHead>
+              <TableHead className="text-right">Money in</TableHead>
+              <TableHead className="text-right">Expenses</TableHead>
+              <TableHead className="text-right">Net</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((r) => (
+              <TableRow key={r.method}>
+                <TableCell>
+                  <span className="font-medium">{r.method}</span>
+                  {r.note && <span className="ml-2 text-xs text-muted-foreground">{r.note}</span>}
+                </TableCell>
+                <TableCell className="text-right tabular">₱{peso(r.moneyIn ?? 0)}</TableCell>
+                <TableCell className="text-right tabular">{r.out === null ? <span className="text-muted-foreground">–</span> : `₱${peso(r.out ?? 0)}`}</TableCell>
+                <TableCell className="text-right"><Net value={r.net} /></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+          <TableFooter>
+            <TableRow>
+              <TableCell className="font-semibold">Total</TableCell>
+              <TableCell className="text-right font-semibold tabular">₱{peso(totalIn)}</TableCell>
+              <TableCell className="text-right font-semibold tabular">₱{peso(totalOut)}</TableCell>
+              <TableCell className="text-right"><Net value={totalIn - totalOut} /></TableCell>
+            </TableRow>
+          </TableFooter>
+        </Table>
+      </CardContent>
+    </Card>
   )
 }
 

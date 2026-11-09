@@ -18,7 +18,7 @@ import { fieldErrors, usePage, useSave } from '@/hooks/use-page'
 import { useSession } from '@/hooks/use-session'
 import type { PageData } from '@/lib/api'
 import { displayDate, isoDate, peso, toNumber } from '@/lib/format'
-import { EXPENSE_PAYMENT_TYPES, paymentTypeLabel, type Customer, type Debt, type Expense, type ExpensePaymentType, type Payment } from '@/lib/types'
+import { CUSTOMER_PAYMENT_TYPES, EXPENSE_PAYMENT_TYPES, customerPaymentTypeLabel, paymentTypeLabel, type Customer, type Debt, type Expense, type ExpensePaymentType, type Payment } from '@/lib/types'
 import { FormButtons } from './customers'
 
 const moneyCell = { cell: ({ getValue }: { getValue: () => unknown }) => peso(getValue()), meta: { numeric: true } }
@@ -55,9 +55,9 @@ export function PaymentFormPage() {
             <Field label="Date" htmlFor="createdAt" error={errors.createdAt}>
               <Input {...bind('createdAt')} type="date" required />
             </Field>
-            <Field label="Paid by" error={errors.paymentType}>
-              <RadioGroup value={String(values.paymentType ?? 'CASH')} onValueChange={(v) => setValue('paymentType', v)} className="flex h-8 items-center gap-6">
-                {[['CASH', 'Cash'], ['CHECK', 'Check']].map(([value, label]) => (
+            <Field label="Paid by" error={errors.paymentType} className="sm:col-span-2">
+              <RadioGroup value={String(values.paymentType ?? 'CASH')} onValueChange={(v) => setValue('paymentType', v)} className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                {CUSTOMER_PAYMENT_TYPES.map(({ value, label }) => (
                   <div key={value} className="flex items-center gap-2">
                     <RadioGroupItem value={value} id={`type-${value}`} />
                     <Label htmlFor={`type-${value}`} className="font-normal">{label}</Label>
@@ -88,7 +88,7 @@ export function PaymentsPage() {
     () => [
       { accessorKey: 'createdAt', header: 'Date', cell: ({ getValue }) => displayDate(getValue<string>()) },
       { accessorKey: 'remarks', header: 'Remarks' },
-      { accessorKey: 'paymentType', header: 'Type', cell: ({ getValue }) => <Badge variant="outline">{getValue<string>()}</Badge> },
+      { accessorKey: 'paymentType', header: 'Paid by', cell: ({ getValue }) => <Badge variant="outline">{customerPaymentTypeLabel(getValue<string>())}</Badge> },
       { accessorKey: 'amount', header: 'Amount', ...moneyCell },
       { accessorKey: 'withholdingTax', header: 'Withholding tax', ...moneyCell },
     ],

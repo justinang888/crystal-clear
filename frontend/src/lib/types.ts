@@ -107,6 +107,18 @@ export function paymentTypeLabel(value: string | null | undefined) {
   return EXPENSE_PAYMENT_TYPES.find((t) => t.value === value)?.label ?? 'Cash'
 }
 
+/** How a customer paid. An order's amount paid on delivery is cash. */
+export const CUSTOMER_PAYMENT_TYPES: { value: string; label: string }[] = [
+  { value: 'CASH', label: 'Cash' },
+  { value: 'CHECK', label: 'Check' },
+  { value: 'GCASH', label: 'GCash' },
+  { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
+]
+
+export function customerPaymentTypeLabel(value: string | null | undefined) {
+  return CUSTOMER_PAYMENT_TYPES.find((t) => t.value === value?.toUpperCase())?.label ?? value ?? ''
+}
+
 export interface Expense {
   expenseId: number
   amount: number | null
@@ -211,6 +223,8 @@ export interface DailySale {
   balanceAmount: number | null
   paidCash: number | null
   paidCheck: number | null
+  paidGcash: number | null
+  paidBankTransfer: number | null
   expenseAmount: number | null
   /** For an expense row: "Cash", "GCash" or "Bank Transfer". */
   expensePaymentType: string | null
@@ -231,10 +245,17 @@ export interface DailySalesData extends PageData {
   totalCashExpenses: string
   /** GCash and bank transfer expenses. */
   totalOtherExpenses: string
+  totalGcashExpenses: string
+  totalBankTransferExpenses: string
   totalCashPayments: string
   totalCheckPayments: string
+  totalGcashPayments: string
+  totalBankTransferPayments: string
   totalDebt: string
+  /** Each method's money in minus its expenses: the drawer, the GCash wallet, the bank account. */
   netCash: string
+  netGcash: string
+  netBankTransfer: string
 }
 
 export interface MonthlyData extends PageData {
