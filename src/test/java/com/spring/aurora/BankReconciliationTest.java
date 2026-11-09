@@ -1,0 +1,167 @@
+package com.spring.aurora;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.Map;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+
+/**
+ * The owner login and the monthly bank reconciliation only it can see.
+ * See docs/specs/owner-role-bank-reconciliation.md.
+ */
+class BankReconciliationTest extends PostgresIntegrationTest {
+
+    private static MockHttpServletRequestBuilder ownerGet(String url) {
+        return MockMvcRequestBuilders.get(url).with(user("boss").roles("OWNER"));
+    }
+
+    private static MockHttpServletRequestBuilder ownerPost(String url) {
+        return MockMvcRequestBuilders.post(url).with(user("boss").roles("OWNER")).with(csrf());
+    }
+
+    private void expense(String day, String amount, String type) {
+        this.jdbc.update("INSERT INTO expense (amount, description, created_at, payment_type) VALUES (?::numeric, 'x', ?::timestamp, ?)",
+                amount, day, type);
+    }
+
+    private Map<String, Object> page(String month) throws Exception {
+        return this.mvc.perform(ownerGet("/expenses/reconciliation").param("d", month)).andReturn().getModelAndView().getModel();
+    }
+
+    // --- Who may see it ---
+
+    @Test
+    void bookkeepersCantOpenOrSaveTheReconciliation() throws Exception {
+        for (String role : new String[] {"ADMIN", "USER"}) {
+            this.mvc.perform(MockMvcRequestBuilders.get("/expenses/reconciliation").with(user("clerk").roles(role))
+                    .accept(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isForbidden());
+            this.mvc.perform(MockMvcRequestBuilders.post("/expenses/reconciliation/save").with(user("clerk").roles(role)).with(csrf())
+                    .param("month", "2026-03").param("statementAmount", "1.00"))
+                    .andExpect(status().isForbidden());
+        }
+        assertThat(this.jdbc.queryForObject("SELECT count(*) FROM bank_reconciliation", Integer.class)).isZero();
+    }
+
+    @Test
+    void theOwnerCanOpenItAndEveryOtherScreen() throws Exception {
+        this.mvc.perform(ownerGet("/expenses/reconciliation").accept(MediaType.APPLICATION_JSON)).andExpect(status().isOk());
+        for (String url : new String[] {"/dashboard", "/customers/list", "/orders/daily?d=today", "/expenses/list?d=today"}) {
+            this.mvc.perform(ownerGet(url).accept(MediaType.APPLICATION_JSON)).andExpect(status().isOk());
+        }
+    }
+
+    @Test
+    void bookkeepersKeepEveryOtherScreen() throws Exception {
+        for (String url : new String[] {"/dashboard", "/customers/list", "/orders/daily?d=today", "/expenses/list?d=today", "/expenses/new"}) {
+            this.mvc.perform(get(url).accept(MediaType.APPLICATION_JSON)).andExpect(status().isOk());
+        }
+    }
+
+    @Test
+    void theSessionSaysWhetherToShowReconciliation() throws Exception {
+        this.mvc.perform(get("/session").accept(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.username").value("tester"))
+                .andExpect(jsonPath("$.canReconcile").value(false));
+        this.mvc.perform(ownerGet("/session").accept(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.username").value("boss"))
+                .andExpect(jsonPath("$.canReconcile").value(true));
+    }
+
+    // --- The month's figures and the owner's entry ---
+
+    @Test
+    void aMonthWithoutAnEntryShowsItsExpensesByType() throws Exception {
+        expense("2026-03-01 00:00:00", "100.00", "CASH");
+        expense("2026-03-31 17:00:00", "50.25", "CASH");          // the last day, late in the day
+        expense("2026-03-15 00:00:00", "300.00", "GCASH");
+        expense("2026-03-20 00:00:00", "2500.00", "BANK_TRANSFER");
+        expense("2026-04-01 00:00:00", "999.00", "BANK_TRANSFER"); // next month
+        expense("2026-02-28 23:00:00", "999.00", "CASH");          // last month
+
+        Map<String, Object> model = page("03-2026");
+
+        assertThat(model.get("month")).isEqualTo(LocalDate.of(2026, 3, 1));
+        @SuppressWarnings("unchecked")
+        Map<String, BigDecimal> byType = (Map<String, BigDecimal>) model.get("totalsByType");
+        assertThat(byType.get("CASH")).isEqualByComparingTo("150.25");
+        assertThat(byType.get("GCASH")).isEqualByComparingTo("300.00");
+        assertThat(byType.get("BANK_TRANSFER")).isEqualByComparingTo("2500.00");
+        assertThat((BigDecimal) model.get("total")).isEqualByComparingTo("2950.25");
+        assertThat(model.get("entry")).isNull();
+        assertThat(model.get("difference")).isNull();
+    }
+
+    @Test
+    void theOwnerSavesTheStatementAmountAndANoteAndSeesTheDifference() throws Exception {
+        expense("2026-03-20 00:00:00", "2500.00", "BANK_TRANSFER");
+
+        this.mvc.perform(ownerPost("/expenses/reconciliation/save").param("month", "2026-03")
+                .param("statementAmount", "2650.00").param("note", "BDO statement; 150 bank charge not recorded"))
+                .andExpect(redirectedUrl("/expenses/reconciliation?d=03-2026"))
+                .andExpect(flash().attribute("msg", "Reconciliation for March 2026 saved."));
+
+        Map<String, Object> model = page("03-2026");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> entry = (Map<String, Object>) model.get("entry");
+        assertThat((BigDecimal) entry.get("statementAmount")).isEqualByComparingTo("2650.00");
+        assertThat(entry.get("note")).isEqualTo("BDO statement; 150 bank charge not recorded");
+        assertThat(entry.get("updatedBy")).isEqualTo("boss");
+        assertThat(entry.get("updatedAt")).isNotNull();
+        // Statement minus the Bank Transfer expenses on record.
+        assertThat((BigDecimal) model.get("difference")).isEqualByComparingTo("150.00");
+    }
+
+    @Test
+    void savingAgainReplacesTheMonthsEntry() throws Exception {
+        this.mvc.perform(ownerPost("/expenses/reconciliation/save").param("month", "2026-03").param("statementAmount", "100.00"));
+        this.mvc.perform(ownerPost("/expenses/reconciliation/save").param("month", "2026-03").param("statementAmount", "120.00")
+                .param("note", ""));
+
+        assertThat(this.jdbc.queryForObject("SELECT count(*) FROM bank_reconciliation", Integer.class)).isEqualTo(1);
+        assertThat(this.jdbc.queryForObject("SELECT statement_amount FROM bank_reconciliation", BigDecimal.class))
+                .isEqualByComparingTo("120.00");
+        assertThat(this.jdbc.queryForObject("SELECT note FROM bank_reconciliation", String.class)).isNull();
+    }
+
+    @Test
+    void aMissingNegativeOrMalformedEntryIsRefused() throws Exception {
+        for (String amount : new String[] {"", "-5", "abc"}) {
+            this.mvc.perform(ownerPost("/expenses/reconciliation/save").param("month", "2026-03").param("statementAmount", amount))
+                    .andExpect(redirectedUrl("/expenses/reconciliation?d=03-2026"))
+                    .andExpect(flash().attributeExists("failmsg"));
+        }
+        this.mvc.perform(ownerPost("/expenses/reconciliation/save").param("month", "2026-03").param("statementAmount", "1")
+                .param("note", "x".repeat(1001)))
+                .andExpect(flash().attributeExists("failmsg"));
+        this.mvc.perform(ownerPost("/expenses/reconciliation/save").param("month", "March").param("statementAmount", "1"))
+                .andExpect(flash().attributeExists("failmsg"));
+        assertThat(this.jdbc.queryForObject("SELECT count(*) FROM bank_reconciliation", Integer.class)).isZero();
+    }
+
+    @Test
+    void savingNeedsTheCsrfToken() throws Exception {
+        this.mvc.perform(MockMvcRequestBuilders.post("/expenses/reconciliation/save").with(user("boss").roles("OWNER"))
+                .param("month", "2026-03").param("statementAmount", "1.00"))
+                .andExpect(status().isForbidden());
+        assertThat(this.jdbc.queryForObject("SELECT count(*) FROM bank_reconciliation", Integer.class)).isZero();
+    }
+
+    @Test
+    void theDefaultMonthIsThisMonth() throws Exception {
+        Map<String, Object> model = this.mvc.perform(ownerGet("/expenses/reconciliation")).andReturn().getModelAndView().getModel();
+        assertThat(model.get("month")).isEqualTo(LocalDate.now().withDayOfMonth(1));
+    }
+}

@@ -327,7 +327,14 @@ export function DailySalesPage() {
         { accessorKey: 'dateAndTime', header: 'Time' },
         { accessorKey: 'customerName', header: 'Customer' },
         ...counts,
-        { accessorKey: 'remarks', header: 'Remarks', cell: ({ getValue }) => <span className="block max-w-56 truncate" title={getValue<string>() ?? ''}>{getValue<string>()}</span> },
+        {
+          accessorKey: 'remarks', header: 'Remarks',
+          cell: ({ row }) => {
+            // Expense rows say how they were paid; only cash ones lower net cash.
+            const text = [row.original.remarks, row.original.expensePaymentType].filter(Boolean).join(' · ')
+            return <span className="block max-w-56 truncate" title={text}>{text}</span>
+          },
+        },
         { accessorKey: 'balanceAmount', header: 'A/R', cell: ({ getValue }) => peso(getValue()), meta: { numeric: true } },
         { accessorKey: 'paidCash', header: 'Cash', cell: ({ getValue }) => peso(getValue()), meta: { numeric: true } },
         { accessorKey: 'paidCheck', header: 'Check', cell: ({ getValue }) => peso(getValue()), meta: { numeric: true } },
@@ -345,7 +352,8 @@ export function DailySalesPage() {
         <Stat label="Cash payments" value={peso(data.totalCashPayments)} />
         <Stat label="Check payments" value={peso(data.totalCheckPayments)} />
         <Stat label="A/R" value={peso(data.totalDebt)} tone={toNumber(data.totalDebt) > 0 ? 'danger' : undefined} />
-        <Stat label="Expenses" value={peso(data.totalExpenses)} />
+        <Stat label="Cash expenses" value={peso(data.totalCashExpenses ?? data.totalExpenses)} />
+        <Stat label="GCash and bank expenses" value={peso(data.totalOtherExpenses ?? 0)} />
         <Stat label="Round delivered / returned" value={`${data.totalRoundDelivered} / ${data.totalRoundReturned}`} tone="round" />
         <Stat label="Slim delivered / returned" value={`${data.totalSlimDelivered} / ${data.totalSlimReturned}`} tone="slim" />
       </div>

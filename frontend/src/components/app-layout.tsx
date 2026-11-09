@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   BarChart3,
   Bell,
@@ -10,6 +10,7 @@ import {
   Coins,
   Droplets,
   History,
+  Landmark,
   LayoutDashboard,
   LogOut,
   MessageSquareText,
@@ -48,7 +49,8 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
-import { AuthError, currentUser, logout } from '@/lib/api'
+import { useSession } from '@/hooks/use-session'
+import { AuthError, logout } from '@/lib/api'
 
 interface NavItem {
   label: string
@@ -56,6 +58,8 @@ interface NavItem {
   icon: typeof Users
   /** Other screens that belong to this entry, so it stays highlighted on them. */
   match?: string[]
+  /** Shown only to the owner; the server refuses everyone else anyway. */
+  ownerOnly?: boolean
 }
 
 const NAV: { label?: string; items: NavItem[] }[] = [
@@ -66,6 +70,7 @@ const NAV: { label?: string; items: NavItem[] }[] = [
       { label: 'Orders', to: '/orders/list', icon: Truck, match: ['/orders/pending', '/orders/neworder', '/orders/edit'] },
       { label: 'Products', to: '/products/list', icon: Package, match: ['/products/new', '/products/edit'] },
       { label: 'Expenses', to: '/expenses/list?d=today', icon: Receipt, match: ['/expenses/new'] },
+      { label: 'Bank Reconciliation', to: '/expenses/reconciliation', icon: Landmark, ownerOnly: true },
       { label: 'A/R Summary', to: '/debts/listAll', icon: Coins },
     ],
   },
@@ -96,7 +101,7 @@ function isActive(item: NavItem, path: string) {
 
 export function AppLayout() {
   const location = useLocation()
-  const user = useQuery({ queryKey: ['session'], queryFn: currentUser, retry: false, staleTime: 5 * 60_000 })
+  const user = useSession()
 
   if (user.error instanceof AuthError) {
     return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />
@@ -129,7 +134,7 @@ export function AppLayout() {
               {group.label && <SidebarGroupLabel>{group.label}</SidebarGroupLabel>}
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {group.items.map((item) => (
+                  {group.items.filter((item) => !item.ownerOnly || user.data?.canReconcile).map((item) => (
                     <SidebarMenuItem key={item.to}>
                       <SidebarMenuButton
                         asChild
@@ -151,7 +156,7 @@ export function AppLayout() {
           ))}
         </SidebarContent>
         <SidebarFooter>
-          <UserMenu username={user.data} />
+          <UserMenu username={user.data?.username} />
         </SidebarFooter>
       </Sidebar>
       <SidebarInset className="min-w-0">

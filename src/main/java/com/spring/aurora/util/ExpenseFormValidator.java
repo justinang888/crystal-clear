@@ -23,5 +23,8 @@ public class ExpenseFormValidator implements Validator {
         if (expense.getAmount() == null || expense.getAmount() <= 0) {
             errors.rejectValue("amount", "Valid.expenseForm.amount");
         }
+        if (expense.getPaymentType() == null && !errors.hasFieldErrors("paymentType")) {
+            errors.rejectValue("paymentType", "NotEmpty.expenseForm.paymentType", "Pick how the expense was paid.");
+        }
     }
 }

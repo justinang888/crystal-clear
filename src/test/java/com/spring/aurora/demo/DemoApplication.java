@@ -20,7 +20,8 @@ import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
  *
  *   mvnw spring-boot:test-run -Dspring-boot.test-run.main-class=com.spring.aurora.demo.DemoApplication
  *
- * Log in as demo / demo. The database lives in memory and is gone when the app stops.
+ * Log in as demo / demo (a bookkeeper), or owner / owner to see the bank reconciliation too.
+ * The database lives in memory and is gone when the app stops.
  */
 public class DemoApplication {
 
@@ -48,13 +49,17 @@ public class DemoApplication {
                 "--spring.datasource.password=");
 
         seed(context.getBean(JdbcTemplate.class), context.getBean(PasswordEncoder.class));
-        System.out.println("Demo data loaded. Open http://localhost:8081/aurora and log in as demo / demo.");
+        System.out.println("Demo data loaded. Open http://localhost:8081/aurora and log in as demo / demo (bookkeeper) "
+                + "or owner / owner (with bank reconciliation).");
         System.out.println("Demo database: " + postgres.getJdbcUrl("postgres", "postgres"));
     }
 
     private static void seed(JdbcTemplate jdbc, PasswordEncoder encoder) {
         jdbc.update("INSERT INTO users (email, enabled, first_name, last_name, password, role, username) "
                 + "VALUES ('demo@example.test', true, 'Demo', 'User', ?, 'ROLE_ADMIN', 'demo')", encoder.encode("demo"));
+        // The owner: everything demo can do, plus the bank reconciliation.
+        jdbc.update("INSERT INTO users (email, enabled, first_name, last_name, password, role, username) "
+                + "VALUES ('owner@example.test', true, 'Demo', 'Owner', ?, 'ROLE_OWNER', 'owner')", encoder.encode("owner"));
 
         jdbc.update("INSERT INTO products (product_id, name, description, initial_price, selling_price) VALUES "
                 + "(1, 'Round Refill', '5 gallon round', 55.00, 55.00), (2, 'Slim Refill', '5 gallon slim', 60.00, 60.00), "
@@ -114,8 +119,14 @@ public class DemoApplication {
                 }
             }
             if (day % 2 == 0) {
-                jdbc.update("INSERT INTO expense (amount, description, created_at) VALUES (?, ?, ?)",
-                        day % 4 == 0 ? 350.00 : 120.50, day % 4 == 0 ? "Delivery fuel" : "Filter cartridges", today.minusDays(day).atTime(17, 0));
+                // Fuel is paid from the drawer, filter cartridges by GCash.
+                jdbc.update("INSERT INTO expense (amount, description, created_at, payment_type) VALUES (?, ?, ?, ?)",
+                        day % 4 == 0 ? 350.00 : 120.50, day % 4 == 0 ? "Delivery fuel" : "Filter cartridges",
+                        today.minusDays(day).atTime(17, 0), day % 4 == 0 ? "CASH" : "GCASH");
+            }
+            if (today.minusDays(day).getDayOfMonth() == 10) {
+                jdbc.update("INSERT INTO expense (amount, description, created_at, payment_type) VALUES (2500.00, 'Water test lab', ?, 'BANK_TRANSFER')",
+                        today.minusDays(day).atTime(9, 0));
             }
         }
         jdbc.update("INSERT INTO ar_summary (ar_amount, customer_id, updated_at) "

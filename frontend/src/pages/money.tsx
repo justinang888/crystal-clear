@@ -1,6 +1,6 @@
 import { useMemo, type FormEvent } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Plus } from 'lucide-react'
+import { Landmark, Plus } from 'lucide-react'
 import { Link } from 'react-router'
 
 import { DateFilter } from '@/components/bits'
@@ -15,9 +15,10 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { TableCell, TableRow } from '@/components/ui/table'
 import { useFormValues } from '@/hooks/use-form'
 import { fieldErrors, usePage, useSave } from '@/hooks/use-page'
+import { useSession } from '@/hooks/use-session'
 import type { PageData } from '@/lib/api'
 import { displayDate, isoDate, peso, toNumber } from '@/lib/format'
-import type { Customer, Debt, Expense, Payment } from '@/lib/types'
+import { EXPENSE_PAYMENT_TYPES, paymentTypeLabel, type Customer, type Debt, type Expense, type ExpensePaymentType, type Payment } from '@/lib/types'
 import { FormButtons } from './customers'
 
 const moneyCell = { cell: ({ getValue }: { getValue: () => unknown }) => peso(getValue()), meta: { numeric: true } }
@@ -226,11 +227,18 @@ export function ArSummaryPage() {
 // ---------- Expenses ----------
 
 export function ExpensesPage() {
-  const { data, error } = usePage<PageData & { expenses: Expense[]; expensesTotal: number; date: string }>()
+  const session = useSession()
+  const { data, error } = usePage<PageData & {
+    expenses: Expense[]
+    expensesTotal: number
+    totalsByType: Record<ExpensePaymentType, number>
+    date: string
+  }>()
   const columns = useMemo<ColumnDef<Expense>[]>(
     () => [
       { accessorKey: 'createdAt', header: 'Date', cell: ({ getValue }) => displayDate(getValue<string>()) },
       { accessorKey: 'description', header: 'Description' },
+      { accessorKey: 'paymentType', header: 'Paid by', cell: ({ getValue }) => <Badge variant="outline">{paymentTypeLabel(getValue<string>())}</Badge> },
       { accessorKey: 'amount', header: 'Amount', ...moneyCell },
     ],
     [],
@@ -244,11 +252,19 @@ export function ExpensesPage() {
         actions={
           <>
             <DateFilter />
+            {session.data?.canReconcile && (
+              <Button variant="outline" asChild><Link to="/expenses/reconciliation"><Landmark /> Bank reconciliation</Link></Button>
+            )}
             <Button asChild><Link to="/expenses/new"><Plus /> New expense</Link></Button>
           </>
         }
       />
-      <div className="mb-6 max-w-xs"><Stat label="Total" value={peso(data.expensesTotal)} /></div>
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat label="Total" value={peso(data.expensesTotal)} />
+        {EXPENSE_PAYMENT_TYPES.map((t) => (
+          <Stat key={t.value} label={t.label} value={peso(data.totalsByType?.[t.value] ?? 0)} />
+        ))}
+      </div>
       <DataTable columns={columns} data={data.expenses} emptyText="No expenses on this day." />
     </>
   )
@@ -258,14 +274,20 @@ export function ExpenseFormPage() {
   const { data, error } = usePage<PageData & { expense: Expense }>()
   const save = useSave('/expenses/save', { formView: 'new-expense' })
   const initial = useMemo(() => (data ? { ...data.expense, createdAt: isoDate(data.expense.createdAt) } : undefined), [data])
-  const { values, bind } = useFormValues<Record<string, unknown>>(initial as Record<string, unknown> | undefined)
+  const { values, bind, setValue } = useFormValues<Record<string, unknown>>(initial as Record<string, unknown> | undefined)
   const errors = fieldErrors(save)
   if (!data || !values) return <PageState error={error} />
 
   function submit(e: FormEvent) {
     e.preventDefault()
     const v = values!
-    save.mutate({ expenseId: v.expenseId as number, createdAt: v.createdAt as string, description: v.description as string, amount: v.amount as string })
+    save.mutate({
+      expenseId: v.expenseId as number,
+      createdAt: v.createdAt as string,
+      description: v.description as string,
+      amount: v.amount as string,
+      paymentType: (v.paymentType as string) || 'CASH',
+    })
   }
 
   return (
@@ -282,6 +304,26 @@ export function ExpenseFormPage() {
             </Field>
             <Field label="Description" htmlFor="description" error={errors.description} className="sm:col-span-2">
               <Input {...bind('description')} required autoFocus maxLength={45} />
+            </Field>
+            <Field
+              label="Paid by"
+              error={errors.paymentType}
+              hint="Only cash comes out of the drawer and lowers the day's net cash."
+              className="sm:col-span-2"
+            >
+              <RadioGroup
+                value={String(values.paymentType ?? 'CASH')}
+                onValueChange={(v) => setValue('paymentType', v)}
+                className="flex flex-wrap gap-6"
+                aria-label="Paid by"
+              >
+                {EXPENSE_PAYMENT_TYPES.map((t) => (
+                  <div key={t.value} className="flex items-center gap-2">
+                    <RadioGroupItem value={t.value} id={`paymentType-${t.value}`} />
+                    <Label htmlFor={`paymentType-${t.value}`} className="font-normal">{t.label}</Label>
+                  </div>
+                ))}
+              </RadioGroup>
             </Field>
             <FormButtons busy={save.isPending} back="/expenses/list?d=today" label="Save expense" />
           </form>

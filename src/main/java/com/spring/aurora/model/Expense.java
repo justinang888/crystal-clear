@@ -4,6 +4,8 @@ import java.sql.Date;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -30,4 +32,9 @@ public class Expense {
     @Column(name="created_at")
     //@Convert(converter = com.spring.aurora.util.LocalDateAttributeConverter.class)
     private Date createdAt;
+
+    /** Cash unless the form says otherwise; expenses from before this column existed are Cash. */
+    @Enumerated(EnumType.STRING)
+    @Column(name="payment_type")
+    private ExpensePaymentType paymentType = ExpensePaymentType.CASH;
 }

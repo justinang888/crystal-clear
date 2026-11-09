@@ -50,7 +50,7 @@ public abstract class PostgresIntegrationTest {
 
     @BeforeEach
     void emptyAllTables() {
-        this.jdbc.execute("TRUNCATE ar_summary, container, customer, customer_price, debt, expense, "
+        this.jdbc.execute("TRUNCATE ar_summary, bank_reconciliation, container, customer, customer_price, debt, expense, "
                 + "order_product, orders, payment, products, sms_message, users RESTART IDENTITY");
     }
 
