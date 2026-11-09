@@ -1,7 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Check, Hourglass, Pencil, X } from 'lucide-react'
-import { Link, useSearchParams } from 'react-router'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 
 import { Count, DateFilter, DateRangeFilter, StatusBadge } from '@/components/bits'
 import { DataTable } from '@/components/data-table'
@@ -25,7 +25,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { fieldErrors, usePage, useSave } from '@/hooks/use-page'
 import { displayDate, isoDate, peso, timestampParam, toNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import type { DailySale, DailySalesData, MonthlyData, OrderFormData, OrderRow, OrdersData } from '@/lib/types'
+import type { CustomersData, DailySale, DailySalesData, MonthlyData, OrderFormData, OrderRow, OrdersData } from '@/lib/types'
 import { containerColumns } from './customers'
 
 // ---------- Order lists ----------
@@ -156,9 +156,90 @@ const COUNT_FOR_PRODUCT: Record<number, string> = {
 }
 
 export function OrderFormPage({ mode }: { mode: 'new' | 'edit' }) {
+  const [params] = useSearchParams()
+  // A new order needs a customer; without one (the dashboard's New order) pick one first.
+  if (mode === 'new' && !params.get('customerId')) return <PickCustomerForOrder />
+  return <LoadedOrderForm mode={mode} />
+}
+
+function LoadedOrderForm({ mode }: { mode: 'new' | 'edit' }) {
   const { data, error } = usePage<OrderFormData>()
   if (!data) return <PageState error={error} />
   return <OrderForm data={data} mode={mode} />
+}
+
+/** The first step of a new order from the dashboard: find the customer, then their order form opens. */
+function PickCustomerForOrder() {
+  const navigate = useNavigate()
+  const { data, error } = usePage<CustomersData>('/customers/list')
+  const [search, setSearch] = useState('')
+  const matches = useMemo(() => {
+    const words = search.toLowerCase().split(/\s+/).filter(Boolean)
+    const customers = (data?.customerPrices ?? []).map((row) => row.customer)
+    return customers
+      .filter((c) => {
+        const text = [c.name, c.contactName, c.address, c.mainNumber, c.alternateNumber].filter(Boolean).join(' ').toLowerCase()
+        // Numbers match with or without their spaces and dashes.
+        const digits = text.replace(/[\s-]/g, '')
+        return words.every((w) => text.includes(w) || digits.includes(w.replace(/[\s-]/g, '')))
+      })
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [data, search])
+
+  if (!data) return <PageState error={error} />
+
+  const open = (customerId: number) => navigate(`/orders/neworder?customerId=${customerId}`)
+
+  function submit(e: FormEvent) {
+    e.preventDefault()
+    if (matches.length > 0) open(matches[0].customerId)
+  }
+
+  return (
+    <div className="max-w-2xl">
+      <PageHeader title="New order" description="Pick the customer; their order form opens next." />
+      <Card className="gap-3 py-5">
+        <CardContent className="space-y-3 px-5">
+          <form onSubmit={submit}>
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name, address or number, then press Enter"
+              aria-label="Find the customer"
+              autoFocus
+            />
+          </form>
+          {matches.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              No customer matches.{' '}
+              <Link to="/customers/new" className="font-medium text-primary hover:underline">Add a new customer</Link>
+            </p>
+          ) : (
+            <ul className="max-h-[60vh] divide-y overflow-auto rounded-md border">
+              {matches.map((c, i) => (
+                <li key={c.customerId}>
+                  <button
+                    type="button"
+                    onClick={() => open(c.customerId)}
+                    className={cn(
+                      'flex w-full items-baseline justify-between gap-4 px-3 py-2.5 text-left hover:bg-accent focus-visible:bg-accent focus-visible:outline-none',
+                      i === 0 && search && 'bg-accent/60',
+                    )}
+                  >
+                    <span className="min-w-0">
+                      <span className="block font-medium">{c.name}</span>
+                      {c.address && <span className="block truncate text-xs text-muted-foreground">{c.address}</span>}
+                    </span>
+                    <span className="shrink-0 text-sm text-muted-foreground tabular">{c.mainNumber}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
 }
 
 function OrderForm({ data, mode }: { data: OrderFormData; mode: 'new' | 'edit' }) {
