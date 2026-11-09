@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Check, Hourglass, Pencil, X } from 'lucide-react'
+import { Check, Hourglass, Pencil, Plus, X } from 'lucide-react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 
 import { Count, DateFilter, DateRangeFilter, StatusBadge } from '@/components/bits'
@@ -116,6 +116,10 @@ export function OrdersPage() {
               </Button>
             )}
             <DateRangeFilter key={`${data.from}:${data.to}`} from={data.from ?? isoDate()} to={data.to ?? isoDate()} />
+            {/* Same as the dashboard's: pick the customer, then their order form opens. */}
+            <Button asChild>
+              <Link to="/orders/neworder"><Plus /> New order</Link>
+            </Button>
           </>
         }
       />
