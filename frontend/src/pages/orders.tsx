@@ -144,6 +144,9 @@ export function PendingOrdersPage() {
 // ---------- New / edit order ----------
 
 /** Which order count each product's quantity goes into (the shop's product ids, as in the old form). */
+/** Round Refill and Slim Refill: the lines whose price can be changed on a new order. */
+const REFILL_PRODUCTS = new Set([1, 2])
+
 const COUNT_FOR_PRODUCT: Record<number, string> = {
   1: 'roundRefillOnlyCount',
   2: 'slimRefillOnlyCount',
@@ -258,7 +261,13 @@ function OrderForm({ data, mode }: { data: OrderFormData; mode: 'new' | 'edit' }
   const [remarks, setRemarks] = useState(order.remarks ?? '')
 
   const products = lines.map((line) => data.productList.find((p) => p.productId === line.productId))
-  const total = lines.reduce((sum, _line, i) => sum + toNumber(quantities[i]) * toNumber(products[i]?.sellingPrice), 0)
+  // On a new order the refill prices can be changed for this order (customers pay 55, 60 or 65);
+  // they start at the customer's own price when one is set, otherwise the list price.
+  const [prices, setPrices] = useState<string[]>(() => products.map((p) => (p ? toNumber(p.sellingPrice).toFixed(2) : '')))
+  const priceEditable = (productId: number) => mode === 'new' && REFILL_PRODUCTS.has(productId)
+  const priceOf = (i: number) => (priceEditable(lines[i].productId) ? toNumber(prices[i]) : toNumber(products[i]?.sellingPrice))
+  const total = lines.reduce((sum, _line, i) => sum + toNumber(quantities[i]) * priceOf(i), 0)
+  const badPrice = lines.some((line, i) => priceEditable(line.productId) && toNumber(quantities[i]) > 0 && !/^\d+(\.\d{1,2})?$/.test(prices[i].trim()))
   const changed = quantities.some((q, i) => q !== (lines[i].quantity ? String(lines[i].quantity) : ''))
   // An edit keeps the saved total until a quantity changes, as the old form did.
   const shownTotal = mode === 'edit' && !changed ? order.totalAmount : total
@@ -277,6 +286,7 @@ function OrderForm({ data, mode }: { data: OrderFormData; mode: 'new' | 'edit' }
 
   function submit(e: FormEvent) {
     e.preventDefault()
+    if (badPrice) return
     const values: Record<string, string | number> = {
       'order.orderId': order.orderId,
       'order.customerId': order.customerId,
@@ -332,8 +342,15 @@ function OrderForm({ data, mode }: { data: OrderFormData; mode: 'new' | 'edit' }
             <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {lines.map((line, i) => {
                 const product = products[i]
+                const editable = priceEditable(line.productId)
+                const priceInvalid = editable && toNumber(quantities[i]) > 0 && !/^\d+(\.\d{1,2})?$/.test(prices[i].trim())
                 return (
-                  <Field key={line.productId} label={product?.name ?? `Product ${line.productId}`} htmlFor={`qty-${line.productId}`}>
+                  <Field
+                    key={line.productId}
+                    label={product?.name ?? `Product ${line.productId}`}
+                    htmlFor={`qty-${line.productId}`}
+                    error={priceInvalid ? 'Enter the price, for example 60.00.' : undefined}
+                  >
                     <div className="flex items-center gap-2">
                       <Input
                         id={`qty-${line.productId}`}
@@ -343,9 +360,26 @@ function OrderForm({ data, mode }: { data: OrderFormData; mode: 'new' | 'edit' }
                         placeholder="0"
                         value={quantities[i]}
                         onChange={(e) => setQuantities((q) => q.map((v, j) => (j === i ? e.target.value : v)))}
-                        className="w-24"
+                        className="w-20"
                       />
-                      <span className="text-sm text-muted-foreground tabular">× {peso(product?.sellingPrice)}</span>
+                      <span className="text-sm text-muted-foreground">×</span>
+                      {editable ? (
+                        <span className="flex items-center gap-1">
+                          <span className="text-sm text-muted-foreground">₱</span>
+                          <Input
+                            id={`price-${line.productId}`}
+                            inputMode="decimal"
+                            value={prices[i]}
+                            onChange={(e) => setPrices((p) => p.map((v, j) => (j === i ? e.target.value : v)))}
+                            onBlur={() => setPrices((p) => p.map((v, j) => (j === i && /^\d+(\.\d{1,2})?$/.test(v.trim()) ? Number(v).toFixed(2) : v)))}
+                            className="w-24 tabular"
+                            aria-label={`${product?.name ?? 'Product'} price`}
+                            aria-invalid={priceInvalid || undefined}
+                          />
+                        </span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground tabular">{peso(product?.sellingPrice)}</span>
+                      )}
                     </div>
                   </Field>
                 )
@@ -387,7 +421,7 @@ function OrderForm({ data, mode }: { data: OrderFormData; mode: 'new' | 'edit' }
               </Field>
             </div>
             <div className="grid gap-2">
-              <Button type="submit" size="lg" disabled={save.isPending}>
+              <Button type="submit" size="lg" disabled={save.isPending || badPrice}>
                 <Check /> {save.isPending ? 'Saving…' : mode === 'new' ? 'Save order' : 'Save changes'}
               </Button>
               <Button type="button" variant="outline" asChild>
