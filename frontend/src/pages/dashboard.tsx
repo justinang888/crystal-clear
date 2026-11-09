@@ -33,7 +33,7 @@ export function DashboardPage() {
         actions={
           <>
             <Button asChild>
-              <Link to="/customers/list">
+              <Link to="/orders/neworder">
                 <Plus /> New order
               </Link>
             </Button>
