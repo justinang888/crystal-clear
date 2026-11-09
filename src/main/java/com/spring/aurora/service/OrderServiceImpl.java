@@ -64,6 +64,11 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    public List<Order> findAllOrdersBetween(java.sql.Date from, java.sql.Date to) {
+        return this.orderDao.findAllOrdersBetween(from, to);
+    }
+
+    @Override
     public List<Order> findDeliveredBetween(Timestamp from, Timestamp until) {
         return this.orderDao.findDeliveredBetween(from, until);
     }

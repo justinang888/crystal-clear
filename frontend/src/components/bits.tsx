@@ -66,6 +66,38 @@ export function DateFilter({ month = false, label = 'Show' }: { month?: boolean;
   )
 }
 
+/**
+ * Picks a range of days for screens that read ?from=yyyy-MM-dd&to=yyyy-MM-dd (both included).
+ * {@code from} and {@code to} are what the server shows now, so the fields start there.
+ */
+export function DateRangeFilter({ from, to }: { from: string; to: string }) {
+  const [params] = useSearchParams()
+  const navigate = useNavigate()
+  const [start, setStart] = useState(from)
+  const [end, setEnd] = useState(to)
+
+  function submit(e: FormEvent) {
+    e.preventDefault()
+    if (!start || !end) return
+    const next = new URLSearchParams(params)
+    next.delete('d')
+    next.set('from', start)
+    next.set('to', end)
+    navigate({ search: next.toString() })
+  }
+
+  return (
+    <form onSubmit={submit} className="flex flex-wrap items-center gap-2">
+      <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="w-auto" aria-label="From" required />
+      <span className="text-sm text-muted-foreground">to</span>
+      <Input type="date" value={end} min={start || undefined} onChange={(e) => setEnd(e.target.value)} className="w-auto" aria-label="To" required />
+      <Button type="submit" variant="secondary">
+        Show
+      </Button>
+    </form>
+  )
+}
+
 /** A count cell that dims zeros, so the non-zero counts in busy tables stand out. */
 export function Count({ value }: { value: number | string | null | undefined }) {
   const n = Number(value ?? 0)

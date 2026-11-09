@@ -3,7 +3,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { Check, Hourglass, Pencil, X } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router'
 
-import { Count, DateFilter, StatusBadge } from '@/components/bits'
+import { Count, DateFilter, DateRangeFilter, StatusBadge } from '@/components/bits'
 import { DataTable } from '@/components/data-table'
 import { Field, PageHeader, PageState, PrintButton, Stat } from '@/components/page'
 import {
@@ -23,7 +23,7 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
 import { fieldErrors, usePage, useSave } from '@/hooks/use-page'
-import { displayDate, peso, timestampParam, toNumber } from '@/lib/format'
+import { displayDate, isoDate, peso, timestampParam, toNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { DailySale, DailySalesData, MonthlyData, OrderFormData, OrderRow, OrdersData } from '@/lib/types'
 import { containerColumns } from './customers'
@@ -115,11 +115,16 @@ export function OrdersPage() {
                 <Link to="/orders/pending"><Hourglass /> {data.pendingCount} pending</Link>
               </Button>
             )}
-            <DateFilter />
+            <DateRangeFilter key={`${data.from}:${data.to}`} from={data.from ?? isoDate()} to={data.to ?? isoDate()} />
           </>
         }
       />
-      <DataTable columns={columns} data={data.orders} initialSort={[{ id: 'dr', desc: true }]} emptyText="No orders on this day." />
+      <DataTable
+        columns={columns}
+        data={data.orders}
+        initialSort={[{ id: 'dr', desc: true }]}
+        emptyText={data.from === data.to ? 'No orders on this day.' : 'No orders in these days.'}
+      />
     </>
   )
 }
