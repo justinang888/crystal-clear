@@ -330,7 +330,7 @@ export function DailySalesPage() {
       const counts = containerColumns<DailySale>((d) => ({ ...(d.order ?? blank), roundReturned: d.returnedRound ?? '0', slimReturned: d.returnedSlim ?? '0' }) as never)
       return [
         { id: 'dr', header: 'DR #', accessorFn: (d) => d.order?.deliveryReceiptNum ?? '' },
-        { accessorKey: 'dateAndTime', header: 'Time' },
+        { accessorKey: 'dateAndTime', header: 'When' },
         { accessorKey: 'customerName', header: 'Customer' },
         ...counts,
         {
@@ -352,9 +352,19 @@ export function DailySalesPage() {
     [],
   )
   if (!data) return <PageState error={error} />
+  const oneDay = !data.from || data.from === data.to
   return (
     <>
-      <PageHeader title="Daily sales" description={data.datePicked} actions={<><DateFilter /><PrintButton /></>} />
+      <PageHeader
+        title="Daily sales"
+        description={data.datePicked}
+        actions={
+          <>
+            <DateRangeFilter key={`${data.from}:${data.to}`} from={data.from ?? isoDate()} to={data.to ?? isoDate()} />
+            <PrintButton />
+          </>
+        }
+      />
       {/* The day's result for each place money is kept: the drawer, the GCash wallet, the bank. */}
       <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Net cash" value={<Net value={data.netCash} />} />
@@ -367,7 +377,23 @@ export function DailySalesPage() {
         <Stat label="Round delivered / returned" value={`${data.totalRoundDelivered} / ${data.totalRoundReturned}`} tone="round" />
         <Stat label="Slim delivered / returned" value={`${data.totalSlimDelivered} / ${data.totalSlimReturned}`} tone="slim" />
       </div>
-      <DataTable columns={columns} data={data.dailySales} initialSort={[{ id: 'dr', desc: true }]} emptyText="No sales, payments or expenses on this day." />
+      <DataTable
+        columns={columns}
+        data={data.dailySales}
+        initialSort={[{ id: 'dr', desc: true }]}
+        emptyText={oneDay ? 'No sales, payments or expenses on this day.' : 'No sales, payments or expenses in these days.'}
+      />
+      {/* Who the days shown involved: follows the date or range picked above. */}
+      <p className="mt-3 text-sm text-muted-foreground">
+        <span className="font-semibold text-foreground">
+          {data.totalCustomers ?? 0} {data.totalCustomers === 1 ? 'customer' : 'customers'}
+        </span>{' '}
+        {oneDay ? 'this day' : 'in these days'}
+        {' · '}
+        {data.customersServed ?? 0} with a delivery
+        {(data.totalCustomers ?? 0) > (data.customersServed ?? 0) &&
+          `, ${(data.totalCustomers ?? 0) - (data.customersServed ?? 0)} only paid or returned containers`}
+      </p>
     </>
   )
 }

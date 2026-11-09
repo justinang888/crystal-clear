@@ -10,8 +10,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,6 +52,9 @@ import com.spring.aurora.service.DebtService;
 import com.spring.aurora.service.ExpenseService;
 import com.spring.aurora.service.OrderProductService;
 import com.spring.aurora.service.OrderService;
+import com.spring.aurora.dao.ContainerDao;
+import com.spring.aurora.dao.ExpenseDao;
+import com.spring.aurora.dao.PaymentDao;
 import com.spring.aurora.service.PaymentService;
 import com.spring.aurora.service.ProductService;
 import com.spring.aurora.util.ReportUtil;
@@ -91,6 +96,16 @@ public class OrderController {
 
     @Autowired
     private PaymentService paymentService;
+
+    // The daily sales report reads a range of days straight from these.
+    @Autowired
+    private ExpenseDao expenseDao;
+
+    @Autowired
+    private PaymentDao paymentDao;
+
+    @Autowired
+    private ContainerDao containerDao;
 
     @Autowired
     private ProductService productService;
@@ -286,7 +301,9 @@ public class OrderController {
     //    }
 
     @RequestMapping(value = "/daily", method = RequestMethod.GET)
-    public String dailySales(Model model, @RequestParam(value="d", defaultValue="today", required=false) String d, @RequestParam(value="mode", defaultValue="normal", required=false) String mode ) {
+    public String dailySales(Model model, @RequestParam(value="d", defaultValue="today", required=false) String d,
+            @RequestParam(required = false) String from, @RequestParam(required = false) String to,
+            @RequestParam(value="mode", defaultValue="normal", required=false) String mode ) {
         logger.info("Daily sales report.");
 
         int totalSlimDelivered = 0;
@@ -301,20 +318,53 @@ public class OrderController {
 
         List<DailySalesEntity> dseList = new ArrayList<>();
 
-        Date date = ("today".equalsIgnoreCase(d)) ? Date.valueOf(LocalDate.now()) : Date.valueOf(LocalDate.parse(d));
-        String datePicked = new SimpleDateFormat("MMM dd YYYY").format(date);
+        // One day (?d=yyyy-MM-dd, today by default) or a range of days (?from=&to=, both included).
+        // A day is a one-day range: every record is matched by its calendar day, whatever its time.
+        LocalDate first;
+        LocalDate last;
+        if (from != null && !from.isEmpty() && to != null && !to.isEmpty()) {
+            first = LocalDate.parse(from);
+            last = LocalDate.parse(to);
+            if (last.isBefore(first)) {
+                LocalDate swap = first;
+                first = last;
+                last = swap;
+            }
+        } else {
+            first = "today".equalsIgnoreCase(d) ? LocalDate.now() : LocalDate.parse(d);
+            last = first;
+        }
+        boolean oneDay = first.equals(last);
+        Date firstDate = Date.valueOf(first);
+        Date lastDate = Date.valueOf(last);
+        SimpleDateFormat label = new SimpleDateFormat("MMM dd yyyy");
+        String datePicked = oneDay ? label.format(firstDate) : label.format(firstDate) + " – " + label.format(lastDate);
         model.addAttribute("datePicked", datePicked);
         model.addAttribute("dateParam", d);
+        model.addAttribute("from", first.toString());
+        model.addAttribute("to", last.toString());
+        // In a range each row also says which day it was.
+        SimpleDateFormat when = new SimpleDateFormat(oneDay ? "h:mm a" : "MMM d, h:mm a");
 
-        List<Order> orderList = this.orderService.findAllOrdersToday(date);
+        // The customers' names in one query, not one per row.
+        Map<Long, String> names = new HashMap<>();
+        for (Customer customer : this.customerService.findAll()) {
+            names.put(customer.getCustomerId(), customer.getName());
+        }
+        // Customers in the days shown: any activity, and those with a delivered order.
+        Set<Long> customersWithActivity = new HashSet<>();
+        Set<Long> customersServed = new HashSet<>();
+
+        List<Order> orderList = this.orderService.findAllOrdersBetween(firstDate, lastDate);
 
         for (Order o : orderList) {
             if (o.getStatus().equalsIgnoreCase("Delivered")) {
                 DailySalesEntity dse = new DailySalesEntity();
                 dse.setOrder(o);
 
-                Customer c = this.customerService.view(o.getCustomerId());
-                dse.setCustomerName(c.getName());
+                dse.setCustomerName(names.get(o.getCustomerId()));
+                customersWithActivity.add(o.getCustomerId());
+                customersServed.add(o.getCustomerId());
                 totalCashPayments += o.getAmountPaid();
                 dse.setPaidCash(o.getAmountPaid());
 
@@ -335,7 +385,7 @@ public class OrderController {
                 dse.setBalanceAmount(Double.parseDouble(df2.format(ar)));
 
                 Timestamp dateTime = o.getCreatedAt();
-                String formattedDate = new SimpleDateFormat("h:mm a").format(dateTime);
+                String formattedDate = when.format(dateTime);
 
                 dse.setReturnedRound(o.getRoundReturned());
                 totalReturnedRound += Integer.parseInt(o.getRoundReturned());
@@ -350,8 +400,7 @@ public class OrderController {
         }
 
         // For Expenses
-        List<Expense> expenseList = new ArrayList<>();
-        expenseList = this.expenseService.findAllByDate(date);
+        List<Expense> expenseList = this.expenseDao.findAllBetween(firstDate, lastDate);
 
         // Each payment method has its own money in, expenses and net: cash is the drawer, GCash the
         // wallet, bank transfer the account. Only cash expenses lower net cash.
@@ -374,14 +423,14 @@ public class OrderController {
         }
 
         // For Payments
-        List<Payment> paymentList = new ArrayList<>();
-        paymentList = this.paymentService.findAllByDate(date);
+        List<Payment> paymentList = this.paymentDao.findAllBetween(firstDate, lastDate);
 
         Double totalGcashPayments = 0.00;
         Double totalBankTransferPayments = 0.00;
         for (Payment p : paymentList) {
             DailySalesEntity dse = new DailySalesEntity();
-            dse.setCustomerName(this.customerService.view(p.getCustomerId()).getName());
+            dse.setCustomerName(names.get(p.getCustomerId()));
+            customersWithActivity.add(p.getCustomerId());
             dse.setRemarks(p.getRemarks());
 
             Double amount = Double.parseDouble(df2.format(p.getAmount()));
@@ -408,15 +457,15 @@ public class OrderController {
         }
 
         // For Containers
-        List<Container> containerList = new ArrayList<>();
-        containerList = this.containerService.findContainerActivityByDate(date);
+        List<Container> containerList = this.containerDao.findContainerActivityBetween(firstDate, lastDate);
 
         for (Container c : containerList) {
             DailySalesEntity dse = new DailySalesEntity();
-            dse.setCustomerName(this.customerService.view(c.getCustomerId()).getName());
+            dse.setCustomerName(names.get(c.getCustomerId()));
             dse.setRemarks("Returned containers.");
 
             if (c.getStatus().equalsIgnoreCase("R")) {
+                customersWithActivity.add(c.getCustomerId());
                 totalReturnedRound += c.getRoundCount();
                 totalReturnedSlim += c.getSlimCount();
                 dse.setReturnedRound(Integer.valueOf(c.getRoundCount()).toString());
@@ -426,6 +475,8 @@ public class OrderController {
         }
 
         model.addAttribute("dailySales", dseList);
+        model.addAttribute("totalCustomers", customersWithActivity.size());
+        model.addAttribute("customersServed", customersServed.size());
 
         model.addAttribute("totalSlimDelivered", totalSlimDelivered);
         model.addAttribute("totalRoundDelivered", totalRoundDelivered);

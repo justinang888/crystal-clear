@@ -19,4 +19,8 @@ public interface ContainerDao extends CrudRepository<Container, Long> {
     @Query("select c from Container c where cast(c.createdAt as date) = :date")
     List<Container> findContainerActivityByDate(Date date);
 
+    /** Container activity on any day from {@code from} to {@code to}, both included. */
+    @Query("select c from Container c where cast(c.createdAt as date) between :from and :to")
+    List<Container> findContainerActivityBetween(java.sql.Date from, java.sql.Date to);
+
 }

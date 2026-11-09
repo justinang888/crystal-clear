@@ -259,6 +259,13 @@ export interface DailySalesData extends PageData {
   netCash: string
   netGcash: string
   netBankTransfer: string
+  /** The days shown, both included: "2026-03-01". */
+  from?: string
+  to?: string
+  /** Customers with any activity in the days shown (delivered order, payment, returned containers). */
+  totalCustomers?: number
+  /** Customers with a delivered order in the days shown. */
+  customersServed?: number
 }
 
 export interface MonthlyData extends PageData {
