@@ -54,6 +54,12 @@ once on the shop PC (and on the trial PC).
 A screen at `/expenses/reconciliation?d=MM-yyyy` (default: this month), linked from Expenses for
 the owner:
 
+> **Added 2026-11-09: by day as well as by month.** A Day / Month switch beside the date picker;
+> `?day=yyyy-MM-dd` opens a single day. A day has its own statement amount, note and difference
+> (against that day's Bank Transfer expenses), separate from its month's entry. Migration V4 keys
+> `bank_reconciliation` by `(period, period_start)`, with `period` `DAY` or `MONTH`; monthly entries
+> saved before it keep their amounts and notes.
+
 - **This month's expenses:** total, and the totals for Cash, GCash and Bank Transfer.
 - **The owner's entry:** *Bank statement amount* (the bank transfers out of the account that month,
   as the statement shows them) and a *Note* (free text, up to 1,000 characters).
