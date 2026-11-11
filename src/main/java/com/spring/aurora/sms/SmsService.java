@@ -29,7 +29,7 @@ public class SmsService {
     public static final int COOLDOWN_DAYS = 14;
 
     public static final String DEFAULT_TEMPLATE = "Hi {name} po, it's been {days} days since your last refill "
-            + "from Aurora Crystal Clear at Aurora Blvd. corner Monte de Piedad St., Cubao. Call or text us to order.";
+            + "from Aurora Crystal Clear at Aurora Blvd., Cubao. Call or text us to order.";
 
     /** Longer than any sensible reminder; keeps a pasted mistake from going out as ten texts. */
     public static final int MAX_LENGTH = 480;
