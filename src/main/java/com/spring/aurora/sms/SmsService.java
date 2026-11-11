@@ -28,8 +28,8 @@ public class SmsService {
     /** Don't text the same customer again within this many days. */
     public static final int COOLDOWN_DAYS = 14;
 
-    public static final String DEFAULT_TEMPLATE = "Hi {name}, it's been {days} days since your last refill "
-            + "from Crystal Clear. Call or text us to order. Reply STOP to stop these texts.";
+    public static final String DEFAULT_TEMPLATE = "Hi {name} po, it's been {days} days since your last refill "
+            + "from Aurora Crystal Clear at Aurora Blvd. corner Monte de Piedad St., Cubao. Call or text us to order.";
 
     /** Longer than any sensible reminder; keeps a pasted mistake from going out as ten texts. */
     public static final int MAX_LENGTH = 480;

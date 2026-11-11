@@ -294,11 +294,13 @@ export interface SalesTotalsFields {
   customersServed: number
 }
 
-/** The month day by day, on Daily Sales' rules: each row equals that day's Daily Sales. */
+/** A range of days (a month by default), on Daily Sales' rules: each row equals that day's Daily Sales. */
 export interface MonthlyData extends PageData, SalesTotalsFields {
+  /** "Mar 2026" for a whole month, else "Mar 15 2026 – Mar 17 2026". */
   monthYear: string
-  /** "03-2026" */
-  monthParam: string
-  /** One row per day of the month, "2026-03-01" onwards. */
+  /** The days shown, both included: "2026-03-01". */
+  from: string
+  to: string
+  /** One row per day, from first to last. */
   days: (SalesTotalsFields & { date: string })[]
 }

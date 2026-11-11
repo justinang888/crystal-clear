@@ -3,7 +3,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { Check, Hourglass, Pencil, Plus, X } from 'lucide-react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 
-import { Count, DateFilter, DateRangeFilter, StatusBadge } from '@/components/bits'
+import { Count, DateRangeFilter, StatusBadge } from '@/components/bits'
 import { DataTable } from '@/components/data-table'
 import { Field, PageHeader, PageState, PrintButton, Stat } from '@/components/page'
 import {
@@ -624,7 +624,7 @@ export function MonthlySummaryPage() {
   if (!data) return <PageState error={error} />
   return (
     <>
-      <PageHeader title="Monthly summary" description={data.monthYear} actions={<><DateFilter month label="Show month" /><PrintButton /></>} />
+      <PageHeader title="Monthly summary" description={data.monthYear} actions={<><DateRangeFilter key={`${data.from}:${data.to}`} from={data.from} to={data.to} /><PrintButton /></>} />
       {/* The same figures as Daily Sales for the whole month, in the same places. */}
       <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Net cash" value={<Net value={data.netCash} />} />
