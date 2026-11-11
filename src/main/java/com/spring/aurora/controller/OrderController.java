@@ -6,11 +6,14 @@ import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -58,6 +61,7 @@ import com.spring.aurora.dao.PaymentDao;
 import com.spring.aurora.service.PaymentService;
 import com.spring.aurora.service.ProductService;
 import com.spring.aurora.util.ReportUtil;
+import com.spring.aurora.util.SalesTotals;
 
 @Controller
 @RequestMapping(value = "/orders")
@@ -306,18 +310,6 @@ public class OrderController {
             @RequestParam(value="mode", defaultValue="normal", required=false) String mode ) {
         logger.info("Daily sales report.");
 
-        int totalSlimDelivered = 0;
-        int totalRoundDelivered = 0;
-        Double totalExpenses = 0.00;
-        Double totalCashPayments = 0.00;
-        Double totalCheckPayments = 0.00;
-        Double totalDebt = 0.00;
-
-        int totalReturnedRound = 0;
-        int totalReturnedSlim = 0;
-
-        List<DailySalesEntity> dseList = new ArrayList<>();
-
         // One day (?d=yyyy-MM-dd, today by default) or a range of days (?from=&to=, both included).
         // A day is a one-day range: every record is matched by its calendar day, whatever its time.
         LocalDate first;
@@ -351,123 +343,56 @@ public class OrderController {
         for (Customer customer : this.customerService.findAll()) {
             names.put(customer.getCustomerId(), customer.getName());
         }
-        // Customers in the days shown: any activity, and those with a delivered order.
-        Set<Long> customersWithActivity = new HashSet<>();
-        Set<Long> customersServed = new HashSet<>();
 
-        List<Order> orderList = this.orderService.findAllOrdersBetween(firstDate, lastDate);
+        // The totals follow the rules the Monthly Summary uses too (SalesTotals).
+        SalesTotals totals = new SalesTotals();
+        List<DailySalesEntity> dseList = new ArrayList<>();
 
-        for (Order o : orderList) {
-            if (o.getStatus().equalsIgnoreCase("Delivered")) {
+        for (Order o : this.orderService.findAllOrdersBetween(firstDate, lastDate)) {
+            if (totals.addOrder(o)) {
                 DailySalesEntity dse = new DailySalesEntity();
                 dse.setOrder(o);
-
                 dse.setCustomerName(names.get(o.getCustomerId()));
-                customersWithActivity.add(o.getCustomerId());
-                customersServed.add(o.getCustomerId());
-                totalCashPayments += o.getAmountPaid();
                 dse.setPaidCash(o.getAmountPaid());
-
-                totalSlimDelivered += o.getSlimRefillOnlyCount();
-                totalRoundDelivered += o.getRoundRefillOnlyCount();
-                totalSlimDelivered += o.getSlimContainerOnlyCount();
-                totalRoundDelivered += o.getRoundContainerOnlyCount();
-                totalSlimDelivered += o.getSlimRefillWithContainerCount();
-                totalRoundDelivered += o.getRoundRefillWithContainerCount();
-                totalSlimDelivered += o.getSlimFreeCount();
-                totalRoundDelivered += o.getRoundFreeCount();
-                //totalSlimReturned += Integer.parseInt(o.getSlimReturned());
-                //totalRoundReturned += Integer.parseInt(o.getRoundReturned());
-
-
-                Double ar = o.getTotalAmount() - o.getAmountPaid();
-                totalDebt += ar;
-                dse.setBalanceAmount(Double.parseDouble(df2.format(ar)));
-
-                Timestamp dateTime = o.getCreatedAt();
-                String formattedDate = when.format(dateTime);
-
+                dse.setBalanceAmount(Double.parseDouble(df2.format(o.getTotalAmount() - o.getAmountPaid())));
                 dse.setReturnedRound(o.getRoundReturned());
-                totalReturnedRound += Integer.parseInt(o.getRoundReturned());
-
                 dse.setReturnedSlim(o.getSlimReturned());
-                totalReturnedSlim += Integer.parseInt(o.getSlimReturned());
-
                 dse.setRemarks(o.getRemarks());
-                dse.setDateAndTime(formattedDate);
+                dse.setDateAndTime(when.format(o.getCreatedAt()));
                 dseList.add(dse);
             }
         }
 
-        // For Expenses
-        List<Expense> expenseList = this.expenseDao.findAllBetween(firstDate, lastDate);
-
-        // Each payment method has its own money in, expenses and net: cash is the drawer, GCash the
-        // wallet, bank transfer the account. Only cash expenses lower net cash.
-        Double totalCashExpenses = 0.00;
-        Double totalGcashExpenses = 0.00;
-        Double totalBankTransferExpenses = 0.00;
-        for (Expense e : expenseList) {
+        for (Expense e : this.expenseDao.findAllBetween(firstDate, lastDate)) {
+            totals.addExpense(e);
             DailySalesEntity dse = new DailySalesEntity();
             dse.setRemarks(e.getDescription());
             dse.setExpensePaymentType(e.getPaymentType() == null ? null : e.getPaymentType().getLabel());
-            totalExpenses += e.getAmount();
-            ExpensePaymentType type = e.getPaymentType() == null ? ExpensePaymentType.CASH : e.getPaymentType();
-            switch (type) {
-                case GCASH -> totalGcashExpenses += e.getAmount();
-                case BANK_TRANSFER -> totalBankTransferExpenses += e.getAmount();
-                default -> totalCashExpenses += e.getAmount();
-            }
             dse.setExpenseAmount(Double.parseDouble(df2.format(e.getAmount())));
             dseList.add(dse);
         }
 
-        // For Payments
-        List<Payment> paymentList = this.paymentDao.findAllBetween(firstDate, lastDate);
-
-        Double totalGcashPayments = 0.00;
-        Double totalBankTransferPayments = 0.00;
-        for (Payment p : paymentList) {
+        for (Payment p : this.paymentDao.findAllBetween(firstDate, lastDate)) {
+            totals.addPayment(p);
             DailySalesEntity dse = new DailySalesEntity();
             dse.setCustomerName(names.get(p.getCustomerId()));
-            customersWithActivity.add(p.getCustomerId());
             dse.setRemarks(p.getRemarks());
-
             Double amount = Double.parseDouble(df2.format(p.getAmount()));
-            switch (p.getPaymentType().toUpperCase()) {
-                case PaymentTypes.CASH -> {
-                    dse.setPaidCash(amount);
-                    totalCashPayments += p.getAmount();
-                }
-                case PaymentTypes.GCASH -> {
-                    dse.setPaidGcash(amount);
-                    totalGcashPayments += p.getAmount();
-                }
-                case PaymentTypes.BANK_TRANSFER -> {
-                    dse.setPaidBankTransfer(amount);
-                    totalBankTransferPayments += p.getAmount();
-                }
+            switch (p.getPaymentType() == null ? "" : p.getPaymentType().toUpperCase()) {
+                case PaymentTypes.CASH -> dse.setPaidCash(amount);
+                case PaymentTypes.GCASH -> dse.setPaidGcash(amount);
+                case PaymentTypes.BANK_TRANSFER -> dse.setPaidBankTransfer(amount);
                 // Checks, and anything older that wasn't cash, as the report always counted them.
-                default -> {
-                    dse.setPaidCheck(amount);
-                    totalCheckPayments += p.getAmount();
-                }
+                default -> dse.setPaidCheck(amount);
             }
             dseList.add(dse);
         }
 
-        // For Containers
-        List<Container> containerList = this.containerDao.findContainerActivityBetween(firstDate, lastDate);
-
-        for (Container c : containerList) {
-            DailySalesEntity dse = new DailySalesEntity();
-            dse.setCustomerName(names.get(c.getCustomerId()));
-            dse.setRemarks("Returned containers.");
-
-            if (c.getStatus().equalsIgnoreCase("R")) {
-                customersWithActivity.add(c.getCustomerId());
-                totalReturnedRound += c.getRoundCount();
-                totalReturnedSlim += c.getSlimCount();
+        for (Container c : this.containerDao.findContainerActivityBetween(firstDate, lastDate)) {
+            if (totals.addContainerReturn(c)) {
+                DailySalesEntity dse = new DailySalesEntity();
+                dse.setCustomerName(names.get(c.getCustomerId()));
+                dse.setRemarks("Returned containers.");
                 dse.setReturnedRound(Integer.valueOf(c.getRoundCount()).toString());
                 dse.setReturnedSlim(Integer.valueOf(c.getSlimCount()).toString());
                 dseList.add(dse);
@@ -475,29 +400,7 @@ public class OrderController {
         }
 
         model.addAttribute("dailySales", dseList);
-        model.addAttribute("totalCustomers", customersWithActivity.size());
-        model.addAttribute("customersServed", customersServed.size());
-
-        model.addAttribute("totalSlimDelivered", totalSlimDelivered);
-        model.addAttribute("totalRoundDelivered", totalRoundDelivered);
-        model.addAttribute("totalSlimReturned", totalReturnedSlim);
-        model.addAttribute("totalRoundReturned", totalReturnedRound);
-
-        model.addAttribute("totalExpenses", ReportUtil.applyCurrencyFormat("" + totalExpenses));
-        model.addAttribute("totalCashExpenses", ReportUtil.applyCurrencyFormat("" + totalCashExpenses));
-        model.addAttribute("totalOtherExpenses", ReportUtil.applyCurrencyFormat("" + (totalExpenses - totalCashExpenses)));
-        model.addAttribute("totalGcashExpenses", ReportUtil.applyCurrencyFormat("" + totalGcashExpenses));
-        model.addAttribute("totalBankTransferExpenses", ReportUtil.applyCurrencyFormat("" + totalBankTransferExpenses));
-        model.addAttribute("totalCashPayments", ReportUtil.applyCurrencyFormat("" + totalCashPayments));
-        model.addAttribute("totalCheckPayments", ReportUtil.applyCurrencyFormat("" + totalCheckPayments));
-        model.addAttribute("totalGcashPayments", ReportUtil.applyCurrencyFormat("" + totalGcashPayments));
-        model.addAttribute("totalBankTransferPayments", ReportUtil.applyCurrencyFormat("" + totalBankTransferPayments));
-        model.addAttribute("totalDebt", ReportUtil.applyCurrencyFormat("" + totalDebt));
-
-        double netCash = totalCashPayments - totalCashExpenses;
-        model.addAttribute("netCash", ReportUtil.applyCurrencyFormat("" + netCash));
-        model.addAttribute("netGcash", ReportUtil.applyCurrencyFormat("" + (totalGcashPayments - totalGcashExpenses)));
-        model.addAttribute("netBankTransfer", ReportUtil.applyCurrencyFormat("" + (totalBankTransferPayments - totalBankTransferExpenses)));
+        model.addAllAttributes(totals.attributes());
 
         if (mode.equalsIgnoreCase("preview")) {
             Collections.sort(dseList,
@@ -512,134 +415,61 @@ public class OrderController {
         } else {
             return "daily-sales";
         }
-
     }
 
+    /**
+     * The month day by day, on the same rules as Daily Sales (SalesTotals): each day's row equals
+     * that day's Daily Sales, and the month's totals equal Daily Sales for the whole month.
+     * ?d=MM-yyyy, this month by default.
+     */
     @RequestMapping(value = "/monthly", method = RequestMethod.GET)
     public String monthlyTotals(Model model, @RequestParam(value = "d", required = false) String datePicked) {
+        YearMonth month = datePicked == null || datePicked.isBlank() || "today".equalsIgnoreCase(datePicked)
+                ? YearMonth.now()
+                : YearMonth.parse(datePicked, DateTimeFormatter.ofPattern("MM-yyyy"));
+        Date firstDate = Date.valueOf(month.atDay(1));
+        Date lastDate = Date.valueOf(month.atEndOfMonth());
 
-        List<DailyTotalsEntity> dteList = new ArrayList<>();
-        int days = 31;
-        String m = "";
-        String y = "";
+        SalesTotals monthTotals = new SalesTotals();
+        Map<LocalDate, SalesTotals> byDay = new LinkedHashMap<>();
+        for (int day = 1; day <= month.lengthOfMonth(); day++) {
+            byDay.put(month.atDay(day), new SalesTotals());
+        }
 
-        Double grandTotalCash = 0.00;
-        Double grandTotalAr = 0.00;
-        Double grandTotalPayment = 0.00;
-        Double grandTotalExpense = 0.00;
-        int grandTotalRound = 0;
-        int grandTotalSlim = 0;
-        int grandTotalContainers = 0;
-
-        System.out.println("Date Picked: " + datePicked);
-
-        if (datePicked == null || datePicked.equalsIgnoreCase("today") || datePicked.equalsIgnoreCase("")) {
-
-            LocalDateTime now = LocalDateTime.now();
-
-            int year = now.getYear();
-            int month = now.getMonthValue();
-
-            System.out.println(month);
-            System.out.println(year);
-
-            if (month<10) {
-                m = "0" + month;
-            } else {
-                m = "" + month;
+        // One query each for the month, then sorted into days.
+        for (Order o : this.orderService.findAllOrdersBetween(firstDate, lastDate)) {
+            if (monthTotals.addOrder(o)) {
+                byDay.get(o.getCreatedAt().toLocalDateTime().toLocalDate()).addOrder(o);
             }
-
-            y = "" + year;
-        } else {
-            String[] splitDate = datePicked.split("-");
-            m = splitDate[0];
-            System.out.println("M: " + m);
-
-            if (splitDate.length > 1) {
-                y = splitDate[1];
+        }
+        for (Payment p : this.paymentDao.findAllBetween(firstDate, lastDate)) {
+            monthTotals.addPayment(p);
+            byDay.get(p.getCreatedAt().toLocalDate()).addPayment(p);
+        }
+        for (Expense e : this.expenseDao.findAllBetween(firstDate, lastDate)) {
+            monthTotals.addExpense(e);
+            byDay.get(e.getCreatedAt().toLocalDate()).addExpense(e);
+        }
+        for (Container c : this.containerDao.findContainerActivityBetween(firstDate, lastDate)) {
+            if (monthTotals.addContainerReturn(c)) {
+                byDay.get(c.getCreatedAt().toLocalDateTime().toLocalDate()).addContainerReturn(c);
             }
         }
 
-        List<String> monthsWith31List = Arrays.asList(monthsWith31);
+        List<Map<String, Object>> days = new ArrayList<>();
+        byDay.forEach((date, totals) -> {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("date", date.toString());
+            row.putAll(totals.attributes());
+            days.add(row);
+        });
 
-        if (!monthsWith31List.contains(m)) {
-            if (Integer.valueOf(m) == 2) {
-                if (ReportUtil.isLeapYear(Integer.parseInt(y))) {
-                    days = 29;
-                } else {
-                    days = 28;
-                }
-            } else {
-                days = 30;
-            }
-        }
-
-        for (int i = 1; i <= days; i++) {
-
-            DailyTotalsEntity dte = new DailyTotalsEntity();
-            Double totalCash = 0.00;
-            Double totalAr = 0.00;
-            Double totalPayment = 0.00;
-            Double totalExpense = 0.00;
-            int totalRoundDelivered = 0;
-            int totalSlimDelivered = 0;
-
-            String day = "";
-            String month = "";
-
-            if (i<10) {
-                day = "0" + i;
-            } else {
-                day = "" + i;
-            }
-
-            month = "" + m;
-
-            String dateStr = y + "-" + month + "-" + day;
-            System.out.println(dateStr);
-            Date date = (Date.valueOf(LocalDate.parse(dateStr)));
-            List<Order> orderList = this.orderService.findAllOrdersToday(date);
-
-            for (Order o : orderList) {
-                totalCash += o.getAmountPaid();
-                totalAr += (o.getTotalAmount() - o.getAmountPaid());
-            }
-
-            totalPayment = ReportUtil.getPaymentTotal(this.paymentService.findAllByDate(date));
-            totalExpense = ReportUtil.getExpenseTotal(this.expenseService.findAllByDate(date));
-            totalRoundDelivered = ReportUtil.getRoundDeliveredTotal(orderList);
-            totalSlimDelivered = ReportUtil.getSlimDeliveredTotal(orderList);
-
-            dte.setDate(date);
-            dte.setTotalCash(totalCash);
-            dte.setTotalAr(totalAr);
-            dte.setTotalPayments(totalPayment);
-            dte.setTotalExpenses(totalExpense);
-            dte.setTotalDeliveredRound(totalRoundDelivered);
-            dte.setTotalDeliveredSlim(totalSlimDelivered);
-            dte.setTotalDeliveredContainers(totalRoundDelivered + totalSlimDelivered);
-
-            grandTotalCash += totalCash;
-            grandTotalAr += totalAr;
-            grandTotalPayment += totalPayment;
-            grandTotalExpense += totalExpense;
-            grandTotalRound += totalRoundDelivered;
-            grandTotalSlim += totalSlimDelivered;
-            dteList.add(dte);
-        }
-
-        grandTotalContainers = grandTotalRound + grandTotalSlim;
-
-        model.addAttribute("dailyTotals", dteList);
-        model.addAttribute("grandTotalCash", grandTotalCash);
-        model.addAttribute("grandTotalAr", grandTotalAr);
-        model.addAttribute("grandTotalPayment", grandTotalPayment);
-        model.addAttribute("grandTotalExpense", grandTotalExpense);
-        model.addAttribute("grandTotalRound", grandTotalRound);
-        model.addAttribute("grandTotalSlim", grandTotalSlim);
-        model.addAttribute("grandTotalContainers", grandTotalContainers);
-
-        model.addAttribute("monthYear", monthsStr[Integer.valueOf(m)-1] + " " + y);
+        model.addAttribute("days", days);
+        model.addAllAttributes(monthTotals.attributes());
+        model.addAttribute("monthYear", monthsStr[month.getMonthValue() - 1] + " " + month.getYear());
+        model.addAttribute("monthParam", month.format(DateTimeFormatter.ofPattern("MM-yyyy")));
+        model.addAttribute("from", month.atDay(1).toString());
+        model.addAttribute("to", month.atEndOfMonth().toString());
         return "monthly-totals";
     }
 

@@ -104,25 +104,57 @@ class SalesReportsTest extends PostgresIntegrationTest {
     }
 
     @Test
-    void monthlyTotalsAddUpEveryOrderInTheMonth() throws Exception {
+    void monthlyTotalsFollowTheDailySalesRules() throws Exception {
         Map<String, Object> model = model("/orders/monthly?d=03-2026");
 
-        assertThat((List<?>) model.get("dailyTotals")).hasSize(31);
-        // Monthly totals include pending orders, unlike the daily report.
-        assertThat(model.get("grandTotalCash")).isEqualTo(1659.0);
-        assertThat(model.get("grandTotalAr")).isEqualTo(65.0);
-        assertThat(model.get("grandTotalPayment")).isEqualTo(1200.0);
-        assertThat(model.get("grandTotalExpense")).isEqualTo(35.5);
-        assertThat(model.get("grandTotalRound")).isEqualTo(5);
-        assertThat(model.get("grandTotalSlim")).isEqualTo(1);
-        assertThat(model.get("grandTotalContainers")).isEqualTo(6);
+        assertThat((List<?>) model.get("days")).hasSize(31);
+        // Delivered orders only, as on Daily Sales (until 2026-11 the month also counted pending ones):
+        // 100 + 60 + 500 paid on delivered orders, plus the 200 cash payment.
+        assertThat(model.get("totalCashPayments")).isEqualTo("860.00");
+        assertThat(model.get("totalCheckPayments")).isEqualTo("1000.00");
+        assertThat(model.get("totalCashExpenses")).isEqualTo("35.50");
+        assertThat(model.get("netCash")).isEqualTo("824.50");
+        assertThat(model.get("totalDebt")).isEqualTo("65.00");
+        assertThat(model.get("totalRoundDelivered")).isEqualTo(5);
+        assertThat(model.get("totalSlimDelivered")).isEqualTo(1);
+        assertThat(model.get("totalRoundReturned")).isEqualTo(3);
+        assertThat(model.get("totalSlimReturned")).isEqualTo(1);
+        assertThat(model.get("totalCustomers")).isEqualTo(1);
         assertThat(model.get("monthYear")).isEqualTo("Mar 2026");
     }
 
     @Test
+    void eachDayOfTheMonthEqualsThatDaysDailySales() throws Exception {
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> days = (List<Map<String, Object>>) model("/orders/monthly?d=03-2026").get("days");
+
+        for (String day : List.of("2026-03-15", "2026-03-16", "2026-03-17")) {
+            Map<String, Object> row = days.stream().filter(r -> day.equals(r.get("date"))).findFirst().orElseThrow();
+            Map<String, Object> daily = model("/orders/daily?d=" + day);
+            for (String key : List.of("totalCashPayments", "totalCheckPayments", "totalGcashPayments", "totalBankTransferPayments",
+                    "totalCashExpenses", "totalGcashExpenses", "totalBankTransferExpenses", "totalExpenses",
+                    "netCash", "netGcash", "netBankTransfer", "totalDebt", "totalRoundDelivered", "totalSlimDelivered",
+                    "totalRoundReturned", "totalSlimReturned", "totalCustomers", "customersServed")) {
+                assertThat(row.get(key)).as(day + " " + key).isEqualTo(daily.get(key));
+            }
+        }
+    }
+
+    @Test
+    void theMonthsTotalsEqualDailySalesForTheWholeMonth() throws Exception {
+        Map<String, Object> month = model("/orders/monthly?d=03-2026");
+        Map<String, Object> range = model("/orders/daily?from=2026-03-01&to=2026-03-31");
+
+        for (String key : List.of("totalCashPayments", "totalCheckPayments", "totalExpenses", "netCash", "totalDebt",
+                "totalRoundDelivered", "totalSlimDelivered", "totalCustomers")) {
+            assertThat(month.get(key)).as(key).isEqualTo(range.get(key));
+        }
+    }
+
+    @Test
     void monthlyTotalsKnowFebruaryLengths() throws Exception {
-        assertThat((List<?>) model("/orders/monthly?d=02-2026").get("dailyTotals")).hasSize(28);
-        assertThat((List<?>) model("/orders/monthly?d=02-2028").get("dailyTotals")).hasSize(29);
+        assertThat((List<?>) model("/orders/monthly?d=02-2026").get("days")).hasSize(28);
+        assertThat((List<?>) model("/orders/monthly?d=02-2028").get("days")).hasSize(29);
     }
 
     @Test
