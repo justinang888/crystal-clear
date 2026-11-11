@@ -268,23 +268,37 @@ export interface DailySalesData extends PageData {
   customersServed?: number
 }
 
-export interface MonthlyData extends PageData {
+/**
+ * The sales totals Daily Sales and the Monthly Summary share (SalesTotals on the server): money is a
+ * string with two decimals, counts are numbers.
+ */
+export interface SalesTotalsFields {
+  totalCashPayments: string
+  totalCheckPayments: string
+  totalGcashPayments: string
+  totalBankTransferPayments: string
+  totalCashExpenses: string
+  totalGcashExpenses: string
+  totalBankTransferExpenses: string
+  totalOtherExpenses: string
+  totalExpenses: string
+  netCash: string
+  netGcash: string
+  netBankTransfer: string
+  totalDebt: string
+  totalRoundDelivered: number
+  totalSlimDelivered: number
+  totalRoundReturned: number
+  totalSlimReturned: number
+  totalCustomers: number
+  customersServed: number
+}
+
+/** The month day by day, on Daily Sales' rules: each row equals that day's Daily Sales. */
+export interface MonthlyData extends PageData, SalesTotalsFields {
   monthYear: string
-  dailyTotals: {
-    date: string
-    totalCash: number
-    totalAr: number
-    totalPayments: number
-    totalExpenses: number
-    totalDeliveredRound: number
-    totalDeliveredSlim: number
-    totalDeliveredContainers: number
-  }[]
-  grandTotalCash: number
-  grandTotalAr: number
-  grandTotalPayment: number
-  grandTotalExpense: number
-  grandTotalRound: number
-  grandTotalSlim: number
-  grandTotalContainers: number
+  /** "03-2026" */
+  monthParam: string
+  /** One row per day of the month, "2026-03-01" onwards. */
+  days: (SalesTotalsFields & { date: string })[]
 }
