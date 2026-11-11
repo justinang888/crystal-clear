@@ -25,7 +25,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { fieldErrors, usePage, useSave } from '@/hooks/use-page'
 import { displayDate, isoDate, peso, timestampParam, toNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import type { CustomersData, DailySale, DailySalesData, MonthlyData, OrderFormData, OrderRow, OrdersData } from '@/lib/types'
+import type { CustomersData, DailySale, DailySalesData, MonthlyData, OrderFormData, OrderRow, OrdersData, SalesTotalsFields } from '@/lib/types'
 import { containerColumns } from './customers'
 
 // ---------- Order lists ----------
@@ -528,7 +528,12 @@ function Net({ value, strong = true }: { value: unknown; strong?: boolean }) {
 }
 
 /** Money in, expenses and net for each payment method, with the day's totals. */
-function MoneyByMethod({ data }: { data: DailySalesData }) {
+type MoneyFields = Pick<SalesTotalsFields,
+  | 'totalCashPayments' | 'totalCheckPayments' | 'totalGcashPayments' | 'totalBankTransferPayments'
+  | 'totalCashExpenses' | 'totalGcashExpenses' | 'totalBankTransferExpenses' | 'totalExpenses'
+  | 'netCash' | 'netGcash' | 'netBankTransfer'>
+
+function MoneyByMethod({ data }: { data: MoneyFields }) {
   const rows = [
     { method: 'Cash', note: 'Payments and orders paid on delivery', moneyIn: data.totalCashPayments, out: data.totalCashExpenses, net: data.netCash },
     { method: 'GCash', note: null, moneyIn: data.totalGcashPayments, out: data.totalGcashExpenses, net: data.netGcash },
@@ -581,20 +586,38 @@ function MoneyByMethod({ data }: { data: DailySalesData }) {
 
 // ---------- Monthly summary ----------
 
-type DayTotal = MonthlyData['dailyTotals'][number]
+type DayTotal = MonthlyData['days'][number]
 
+/** Money in on a day, every method: what the Money in column of the day rows adds up. */
+const moneyIn = (t: MoneyFields) =>
+  toNumber(t.totalCashPayments) + toNumber(t.totalCheckPayments) + toNumber(t.totalGcashPayments) + toNumber(t.totalBankTransferPayments)
+
+/**
+ * The month on Daily Sales' rules and layout: the nets and the money by payment method for the
+ * whole month, then one row per day. Each date opens that day's Daily Sales, which shows the same
+ * numbers in detail.
+ */
 export function MonthlySummaryPage() {
   const { data, error } = usePage<MonthlyData>()
   const columns = useMemo<ColumnDef<DayTotal>[]>(
     () => [
-      { accessorKey: 'date', header: 'Date', cell: ({ getValue }) => displayDate(getValue<string>()) },
-      { accessorKey: 'totalCash', header: 'Cash', cell: ({ getValue }) => peso(getValue()), meta: { numeric: true } },
-      { accessorKey: 'totalAr', header: 'A/R', cell: ({ getValue }) => peso(getValue()), meta: { numeric: true } },
-      { accessorKey: 'totalPayments', header: 'Payments', cell: ({ getValue }) => peso(getValue()), meta: { numeric: true } },
-      { accessorKey: 'totalExpenses', header: 'Expenses', cell: ({ getValue }) => peso(getValue()), meta: { numeric: true } },
-      { accessorKey: 'totalDeliveredRound', header: 'Round', cell: ({ getValue }) => <Count value={getValue<number>()} />, meta: { numeric: true, className: 'tint-round' } },
-      { accessorKey: 'totalDeliveredSlim', header: 'Slim', cell: ({ getValue }) => <Count value={getValue<number>()} />, meta: { numeric: true, className: 'tint-slim' } },
-      { accessorKey: 'totalDeliveredContainers', header: 'Total delivered', cell: ({ getValue }) => <Count value={getValue<number>()} />, meta: { numeric: true } },
+      {
+        accessorKey: 'date', header: 'Date',
+        cell: ({ getValue }) => (
+          <Link to={`/orders/daily?d=${getValue<string>()}`} className="font-medium text-primary hover:underline">
+            {displayDate(getValue<string>())}
+          </Link>
+        ),
+      },
+      { id: 'in', header: 'Money in', accessorFn: (d) => moneyIn(d), cell: ({ getValue }) => <Money value={getValue<number>()} />, meta: { numeric: true } },
+      { accessorKey: 'totalExpenses', header: 'Expenses', cell: ({ getValue }) => <Money value={getValue()} />, meta: { numeric: true } },
+      { accessorKey: 'netCash', header: 'Net cash', cell: ({ getValue }) => <NetCell value={getValue()} />, meta: { numeric: true } },
+      { accessorKey: 'netGcash', header: 'Net GCash', cell: ({ getValue }) => <NetCell value={getValue()} />, meta: { numeric: true } },
+      { accessorKey: 'netBankTransfer', header: 'Net bank', cell: ({ getValue }) => <NetCell value={getValue()} />, meta: { numeric: true } },
+      { accessorKey: 'totalDebt', header: 'A/R', cell: ({ getValue }) => <Money value={getValue()} />, meta: { numeric: true } },
+      { accessorKey: 'totalRoundDelivered', header: 'Round', cell: ({ getValue }) => <Count value={getValue<number>()} />, meta: { numeric: true, className: 'tint-round' } },
+      { accessorKey: 'totalSlimDelivered', header: 'Slim', cell: ({ getValue }) => <Count value={getValue<number>()} />, meta: { numeric: true, className: 'tint-slim' } },
+      { accessorKey: 'totalCustomers', header: 'Customers', cell: ({ getValue }) => <Count value={getValue<number>()} />, meta: { numeric: true } },
     ],
     [],
   )
@@ -602,30 +625,54 @@ export function MonthlySummaryPage() {
   return (
     <>
       <PageHeader title="Monthly summary" description={data.monthYear} actions={<><DateFilter month label="Show month" /><PrintButton /></>} />
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Cash" value={peso(data.grandTotalCash)} />
-        <Stat label="A/R" value={peso(data.grandTotalAr)} />
-        <Stat label="Payments" value={peso(data.grandTotalPayment)} />
-        <Stat label="Expenses" value={peso(data.grandTotalExpense)} />
+      {/* The same figures as Daily Sales for the whole month, in the same places. */}
+      <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat label="Net cash" value={<Net value={data.netCash} />} />
+        <Stat label="Net GCash" value={<Net value={data.netGcash} />} />
+        <Stat label="Net bank transfer" value={<Net value={data.netBankTransfer} />} />
+        <Stat label="A/R" value={`₱${peso(data.totalDebt)}`} tone={toNumber(data.totalDebt) > 0 ? 'danger' : undefined} />
       </div>
+      <MoneyByMethod data={data} />
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat label="Round delivered / returned" value={`${data.totalRoundDelivered} / ${data.totalRoundReturned}`} tone="round" />
+        <Stat label="Slim delivered / returned" value={`${data.totalSlimDelivered} / ${data.totalSlimReturned}`} tone="slim" />
+        <Stat label="Customers" value={`${data.totalCustomers}`} />
+        <Stat label="With a delivery" value={`${data.customersServed}`} />
+      </div>
+      <h2 className="mb-2 text-sm font-medium text-muted-foreground">Day by day: each date opens that day&apos;s Daily Sales</h2>
       <DataTable
         columns={columns}
-        data={data.dailyTotals}
+        data={data.days}
         searchable={false}
         initialSort={[{ id: 'date', desc: false }]}
         footer={
           <TableRow>
             <TableCell className="font-semibold">Month total</TableCell>
-            <TableCell className="text-right tabular font-semibold">{peso(data.grandTotalCash)}</TableCell>
-            <TableCell className="text-right tabular font-semibold">{peso(data.grandTotalAr)}</TableCell>
-            <TableCell className="text-right tabular font-semibold">{peso(data.grandTotalPayment)}</TableCell>
-            <TableCell className="text-right tabular font-semibold">{peso(data.grandTotalExpense)}</TableCell>
-            <TableCell className="tint-round text-right tabular font-semibold">{data.grandTotalRound}</TableCell>
-            <TableCell className="tint-slim text-right tabular font-semibold">{data.grandTotalSlim}</TableCell>
-            <TableCell className="text-right tabular font-semibold">{data.grandTotalContainers}</TableCell>
+            <TableCell className="text-right tabular font-semibold"><Money value={moneyIn(data)} /></TableCell>
+            <TableCell className="text-right tabular font-semibold"><Money value={data.totalExpenses} /></TableCell>
+            <TableCell className="text-right"><NetCell value={data.netCash} /></TableCell>
+            <TableCell className="text-right"><NetCell value={data.netGcash} /></TableCell>
+            <TableCell className="text-right"><NetCell value={data.netBankTransfer} /></TableCell>
+            <TableCell className="text-right tabular font-semibold"><Money value={data.totalDebt} /></TableCell>
+            <TableCell className="tint-round text-right tabular font-semibold">{data.totalRoundDelivered}</TableCell>
+            <TableCell className="tint-slim text-right tabular font-semibold">{data.totalSlimDelivered}</TableCell>
+            <TableCell className="text-right tabular font-semibold">{data.totalCustomers}</TableCell>
           </TableRow>
         }
       />
     </>
   )
+}
+
+/** An amount in a busy table; zero is dimmed so the days with activity stand out. */
+function Money({ value }: { value: unknown }) {
+  const n = toNumber(value)
+  return n === 0 ? <span className="text-muted-foreground/50">0.00</span> : <span className="tabular">{peso(n)}</span>
+}
+
+/** A net in a busy table: red with a minus sign when more went out than came in; zero dimmed. */
+function NetCell({ value }: { value: unknown }) {
+  const n = toNumber(value)
+  if (n === 0) return <span className="text-muted-foreground/50">0.00</span>
+  return <span className={cn('tabular', n < 0 && 'text-destructive')}>{n < 0 ? '−' : ''}{peso(Math.abs(n))}</span>
 }
