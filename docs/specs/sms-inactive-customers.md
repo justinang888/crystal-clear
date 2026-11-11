@@ -66,7 +66,7 @@ owner decides otherwise; see the open questions.
 2. **Compose screen** (`/sms/compose`): each matching customer with a checkbox (ticked by
    default) and a message template with blanks, for example
    `Hi {name} po, it's been {days} days since your last refill from Aurora Crystal Clear at
-   Aurora Blvd. corner Monte de Piedad St., Cubao. Call or text us to order.`
+   Aurora Blvd., Cubao. Call or text us to order.`
    - Blanks: `{name}` (customer name, or contact person when set), `{days}` (days since the
      last delivered order).
    - A preview of every actual message, with its number.
