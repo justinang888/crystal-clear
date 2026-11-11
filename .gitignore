@@ -4,6 +4,9 @@ AURORA-*/
 # Local trial run on this PC (WAR, start script, database setup with customer data)
 local/
 
+# The shop's own setup and remote access guide - kept on this PC only
+deploy/README.md
+
 dumps/
 notes/
 *.war
