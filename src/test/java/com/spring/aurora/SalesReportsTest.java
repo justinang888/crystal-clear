@@ -152,6 +152,32 @@ class SalesReportsTest extends PostgresIntegrationTest {
     }
 
     @Test
+    void theSummaryCanCoverAnyRangeOfDays() throws Exception {
+        Map<String, Object> model = model("/orders/monthly?from=2026-03-15&to=2026-03-17");
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> days = (List<Map<String, Object>>) model.get("days");
+        assertThat(days).extracting(r -> r.get("date")).containsExactly("2026-03-15", "2026-03-16", "2026-03-17");
+        assertThat(model.get("from")).isEqualTo("2026-03-15");
+        assertThat(model.get("to")).isEqualTo("2026-03-17");
+        assertThat(model.get("monthYear")).isEqualTo("Mar 15 2026 – Mar 17 2026");
+        // The same totals as Daily Sales for those days.
+        Map<String, Object> range = model("/orders/daily?from=2026-03-15&to=2026-03-17");
+        for (String key : List.of("totalCashPayments", "netCash", "totalExpenses", "totalDebt", "totalCustomers")) {
+            assertThat(model.get(key)).as(key).isEqualTo(range.get(key));
+        }
+    }
+
+    @Test
+    void aBackwardsRangeIsTurnedAroundAndAMonthStillWorks() throws Exception {
+        assertThat(model("/orders/monthly?from=2026-03-17&to=2026-03-15").get("from")).isEqualTo("2026-03-15");
+        Map<String, Object> month = model("/orders/monthly?d=03-2026");
+        assertThat(month.get("from")).isEqualTo("2026-03-01");
+        assertThat(month.get("to")).isEqualTo("2026-03-31");
+        assertThat(month.get("monthYear")).isEqualTo("Mar 2026");
+    }
+
+    @Test
     void monthlyTotalsKnowFebruaryLengths() throws Exception {
         assertThat((List<?>) model("/orders/monthly?d=02-2026").get("days")).hasSize(28);
         assertThat((List<?>) model("/orders/monthly?d=02-2028").get("days")).hasSize(29);

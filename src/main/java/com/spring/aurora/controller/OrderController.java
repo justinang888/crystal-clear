@@ -423,17 +423,40 @@ public class OrderController {
      * ?d=MM-yyyy, this month by default.
      */
     @RequestMapping(value = "/monthly", method = RequestMethod.GET)
-    public String monthlyTotals(Model model, @RequestParam(value = "d", required = false) String datePicked) {
-        YearMonth month = datePicked == null || datePicked.isBlank() || "today".equalsIgnoreCase(datePicked)
-                ? YearMonth.now()
-                : YearMonth.parse(datePicked, DateTimeFormatter.ofPattern("MM-yyyy"));
-        Date firstDate = Date.valueOf(month.atDay(1));
-        Date lastDate = Date.valueOf(month.atEndOfMonth());
+    public String monthlyTotals(Model model, @RequestParam(value = "d", required = false) String datePicked,
+            @RequestParam(required = false) String from, @RequestParam(required = false) String to) {
+        // A range of days (?from=&to=, both included, as on Daily Sales) or a month (?d=MM-yyyy,
+        // this month by default).
+        LocalDate first;
+        LocalDate last;
+        String label;
+        if (from != null && !from.isEmpty() && to != null && !to.isEmpty()) {
+            first = LocalDate.parse(from);
+            last = LocalDate.parse(to);
+            if (last.isBefore(first)) {
+                LocalDate swap = first;
+                first = last;
+                last = swap;
+            }
+            SimpleDateFormat dayLabel = new SimpleDateFormat("MMM dd yyyy");
+            label = first.equals(last)
+                    ? dayLabel.format(Date.valueOf(first))
+                    : dayLabel.format(Date.valueOf(first)) + " – " + dayLabel.format(Date.valueOf(last));
+        } else {
+            YearMonth month = datePicked == null || datePicked.isBlank() || "today".equalsIgnoreCase(datePicked)
+                    ? YearMonth.now()
+                    : YearMonth.parse(datePicked, DateTimeFormatter.ofPattern("MM-yyyy"));
+            first = month.atDay(1);
+            last = month.atEndOfMonth();
+            label = monthsStr[month.getMonthValue() - 1] + " " + month.getYear();
+        }
+        Date firstDate = Date.valueOf(first);
+        Date lastDate = Date.valueOf(last);
 
         SalesTotals monthTotals = new SalesTotals();
         Map<LocalDate, SalesTotals> byDay = new LinkedHashMap<>();
-        for (int day = 1; day <= month.lengthOfMonth(); day++) {
-            byDay.put(month.atDay(day), new SalesTotals());
+        for (LocalDate day = first; !day.isAfter(last); day = day.plusDays(1)) {
+            byDay.put(day, new SalesTotals());
         }
 
         // One query each for the month, then sorted into days.
@@ -466,10 +489,9 @@ public class OrderController {
 
         model.addAttribute("days", days);
         model.addAllAttributes(monthTotals.attributes());
-        model.addAttribute("monthYear", monthsStr[month.getMonthValue() - 1] + " " + month.getYear());
-        model.addAttribute("monthParam", month.format(DateTimeFormatter.ofPattern("MM-yyyy")));
-        model.addAttribute("from", month.atDay(1).toString());
-        model.addAttribute("to", month.atEndOfMonth().toString());
+        model.addAttribute("monthYear", label);
+        model.addAttribute("from", first.toString());
+        model.addAttribute("to", last.toString());
         return "monthly-totals";
     }
 
