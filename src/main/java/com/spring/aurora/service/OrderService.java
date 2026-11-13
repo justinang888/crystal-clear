@@ -22,6 +22,8 @@ public interface OrderService {
     List<Order> findDeliveredBetween(Timestamp from, Timestamp until);
     List<Order> findAllByDeliveryReceiptNumber(int drNumber);
     List<Order> findAll();
+    /** Every pending order, from any day, oldest first. */
+    List<Order> findAllPending();
 
     List<Order> findAllOrdersPerMonth(Integer month, Integer year);
 

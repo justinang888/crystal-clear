@@ -59,6 +59,11 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    public List<Order> findAllPending() {
+        return this.orderDao.findAllPendingOrders();
+    }
+
+    @Override
     public Timestamp getMostRecentOrderDate(long customerId) {
         return this.orderDao.getMostRecentOrderDate(customerId);
     }

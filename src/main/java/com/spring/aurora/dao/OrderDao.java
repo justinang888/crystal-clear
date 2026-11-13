@@ -28,7 +28,8 @@ public interface OrderDao extends CrudRepository<Order, Long> {
     @Query("select o.customerId, max(o.createdAt) from Order o where lower(o.status) = 'delivered' group by o.customerId")
     List<Object[]> findLastDeliveredPerCustomer();
 
-    @Query("select o from Order o where status = 'Pending'")
+    /** Every pending order, from any day, oldest first; older rows may spell the status in another case. */
+    @Query("select o from Order o where lower(o.status) = 'pending' order by o.orderId")
     List<Order> findAllPendingOrders();
 
     @Query("select o from Order o where MONTH(o.createdAt) = :month and YEAR(o.createdAt) = :year")
