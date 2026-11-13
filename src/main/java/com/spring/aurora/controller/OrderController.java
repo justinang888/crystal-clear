@@ -554,29 +554,27 @@ public class OrderController {
     public String listPendingOrders(Model model) {
         logger.info("List all pending orders.");
 
-        int pendingCount = 0;
-
-        List<Order> orderList = new ArrayList<>();
-        List<OrderCustomerEntity> orderCustomerEntityList = new ArrayList<>();
-
-        orderList = this.orderService.findAll();
-
-        for (Order order : orderList) {
-
-            if (order.getStatus().equalsIgnoreCase("pending")) {
-                pendingCount++;
-
-                OrderCustomerEntity oce = new OrderCustomerEntity();
-                oce.setOrder(order);
-                Customer customer = this.customerService.view(order.getCustomerId());
-                oce.setCustomerName(customer.getName());
-                String formattedDate = new SimpleDateFormat("MM-dd-yyyy hh:mm:ss a").format(order.getCreatedAt());
-                oce.setFormattedDate(formattedDate);
-                orderCustomerEntityList.add(oce);
+        // Only the pending orders, and the customers' names in one query, not one per order.
+        List<Order> orderList = this.orderService.findAllPending();
+        Map<Long, String> names = new HashMap<>();
+        if (!orderList.isEmpty()) {
+            List<Long> customerIds = orderList.stream().map(Order::getCustomerId).distinct().toList();
+            for (Customer customer : this.customerService.findAllByCustomerIdIn(customerIds)) {
+                names.put(customer.getCustomerId(), customer.getName());
             }
         }
+
+        List<OrderCustomerEntity> orderCustomerEntityList = new ArrayList<>();
+        for (Order order : orderList) {
+            OrderCustomerEntity oce = new OrderCustomerEntity();
+            oce.setOrder(order);
+            oce.setCustomerName(names.get(order.getCustomerId()));
+            String formattedDate = new SimpleDateFormat("MM-dd-yyyy hh:mm:ss a").format(order.getCreatedAt());
+            oce.setFormattedDate(formattedDate);
+            orderCustomerEntityList.add(oce);
+        }
         model.addAttribute("orders", orderCustomerEntityList);
-        model.addAttribute("pendingCount", pendingCount);
+        model.addAttribute("pendingCount", orderList.size());
 
         return "list-pending-orders";
     }
